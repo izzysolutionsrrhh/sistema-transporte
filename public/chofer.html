@@ -1,0 +1,513 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Recorridos - Chofer</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --azul: #1d4ed8;
+      --azul-claro: #eff6ff;
+      --verde: #15803d;
+      --verde-claro: #f0fdf4;
+      --rojo: #dc2626;
+      --rojo-claro: #fef2f2;
+      --naranja: #d97706;
+      --gris: #6b7280;
+      --gris-claro: #f1f5f9;
+      --texto: #1e293b;
+      --borde: #e2e8f0;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: var(--gris-claro);
+      color: var(--texto);
+      min-height: 100dvh;
+    }
+
+    /* ── PANTALLA CÓDIGO ─────────────────────────── */
+    #screen-codigo {
+      min-height: 100dvh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 32px 24px;
+      background: white;
+    }
+
+    #screen-codigo .icono {
+      font-size: 72px;
+      margin-bottom: 16px;
+    }
+
+    #screen-codigo h1 {
+      font-size: 26px;
+      font-weight: 700;
+      text-align: center;
+      margin-bottom: 8px;
+    }
+
+    #screen-codigo p {
+      color: var(--gris);
+      text-align: center;
+      margin-bottom: 32px;
+      font-size: 16px;
+    }
+
+    .campo {
+      width: 100%;
+      max-width: 320px;
+      padding: 16px;
+      font-size: 24px;
+      font-weight: 700;
+      text-align: center;
+      letter-spacing: 4px;
+      border: 2px solid var(--borde);
+      border-radius: 12px;
+      outline: none;
+      text-transform: uppercase;
+      margin-bottom: 16px;
+    }
+
+    .campo:focus { border-color: var(--azul); }
+
+    #error-codigo {
+      color: var(--rojo);
+      font-size: 14px;
+      text-align: center;
+      min-height: 20px;
+      margin-bottom: 12px;
+    }
+
+    /* ── BOTONES ──────────────────────────────────── */
+    .btn {
+      display: block;
+      width: 100%;
+      max-width: 320px;
+      padding: 18px;
+      font-size: 18px;
+      font-weight: 700;
+      border: none;
+      border-radius: 12px;
+      cursor: pointer;
+      transition: opacity 0.15s, transform 0.1s;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .btn:active { transform: scale(0.97); opacity: 0.85; }
+    .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    .btn-azul  { background: var(--azul); color: white; }
+    .btn-verde { background: var(--verde); color: white; }
+    .btn-rojo  { background: var(--rojo); color: white; }
+    .btn-rojo-outline {
+      background: transparent;
+      color: var(--rojo);
+      border: 2px solid var(--rojo);
+    }
+
+    /* ── PANTALLA RECORRIDO ───────────────────────── */
+    #screen-recorrido { display: none; flex-direction: column; min-height: 100dvh; }
+
+    header.top {
+      background: white;
+      padding: 16px 20px 12px;
+      border-bottom: 1px solid var(--borde);
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+
+    .header-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    #nombre-recorrido {
+      font-size: 20px;
+      font-weight: 700;
+      flex: 1;
+    }
+
+    .badge {
+      font-size: 12px;
+      font-weight: 700;
+      padding: 4px 10px;
+      border-radius: 20px;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+    .badge-pendiente    { background: #f1f5f9; color: var(--gris); }
+    .badge-en_recorrido { background: #fef3c7; color: #92400e; }
+    .badge-completado   { background: #dcfce7; color: #14532d; }
+    .badge-no_asistio   { background: #fee2e2; color: #991b1b; }
+
+    #progreso-texto {
+      font-size: 14px;
+      color: var(--gris);
+      margin-top: 6px;
+    }
+
+    .barra-outer {
+      height: 6px;
+      background: var(--borde);
+      border-radius: 4px;
+      margin-top: 6px;
+      overflow: hidden;
+    }
+
+    #barra-progreso {
+      height: 100%;
+      background: var(--verde);
+      border-radius: 4px;
+      transition: width 0.4s ease;
+      width: 0%;
+    }
+
+    /* ── CUERPO SCROLL ────────────────────────────── */
+    .cuerpo {
+      flex: 1;
+      overflow-y: auto;
+      padding: 16px;
+      padding-bottom: 100px;
+    }
+
+    /* ── ACCIONES DE INICIO ───────────────────────── */
+    #bloque-inicio {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      align-items: center;
+      margin-bottom: 24px;
+    }
+
+    /* ── LISTA PASAJEROS ──────────────────────────── */
+    #lista-pasajeros { list-style: none; display: flex; flex-direction: column; gap: 10px; }
+
+    .item-pasajero {
+      background: white;
+      border-radius: 12px;
+      padding: 14px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      border: 2px solid var(--borde);
+      transition: border-color 0.2s;
+    }
+
+    .item-pasajero.retirado {
+      border-color: var(--verde);
+      background: var(--verde-claro);
+    }
+
+    .pasajero-info { flex: 1; min-width: 0; }
+
+    .pasajero-nombre {
+      font-size: 18px;
+      font-weight: 600;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .pasajero-hora {
+      font-size: 13px;
+      color: var(--verde);
+      font-weight: 600;
+      margin-top: 2px;
+    }
+
+    .btn-retirar {
+      flex-shrink: 0;
+      padding: 10px 18px;
+      font-size: 15px;
+      font-weight: 700;
+      border: none;
+      border-radius: 8px;
+      background: var(--azul);
+      color: white;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+      transition: opacity 0.15s, transform 0.1s;
+    }
+    .btn-retirar:active { transform: scale(0.96); opacity: 0.85; }
+    .btn-retirar:disabled { opacity: 0.4; }
+
+    .check-icono {
+      font-size: 24px;
+      color: var(--verde);
+      flex-shrink: 0;
+    }
+
+    /* ── FOOTER FIJO ──────────────────────────────── */
+    .footer-fijo {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: white;
+      border-top: 1px solid var(--borde);
+      padding: 12px 20px 20px;
+    }
+
+    /* ── MENSAJE ESTADO ───────────────────────────── */
+    .mensaje-estado {
+      background: white;
+      border-radius: 12px;
+      padding: 20px;
+      text-align: center;
+      border: 2px solid var(--borde);
+      margin-bottom: 16px;
+    }
+    .mensaje-estado .estado-icono { font-size: 48px; margin-bottom: 8px; }
+    .mensaje-estado h3 { font-size: 20px; margin-bottom: 4px; }
+    .mensaje-estado p { color: var(--gris); font-size: 14px; }
+
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>
+
+<!-- ─── PANTALLA 1: CÓDIGO ─────────────────────────────────── -->
+<div id="screen-codigo">
+  <div class="icono">🚌</div>
+  <h1>Sistema de Recorridos</h1>
+  <p>Ingresá el código de tu recorrido</p>
+  <input id="input-codigo" class="campo" type="text" placeholder="Ej: R01"
+         maxlength="10" autocomplete="off" autocorrect="off" spellcheck="false">
+  <div id="error-codigo"></div>
+  <button id="btn-ingresar" class="btn btn-azul">Entrar</button>
+</div>
+
+<!-- ─── PANTALLA 2: RECORRIDO ──────────────────────────────── -->
+<div id="screen-recorrido">
+  <header class="top">
+    <div class="header-row">
+      <span id="nombre-recorrido">Recorrido</span>
+      <span id="badge-estado" class="badge badge-pendiente">Pendiente</span>
+    </div>
+    <div id="progreso-texto">Cargando...</div>
+    <div class="barra-outer"><div id="barra-progreso"></div></div>
+  </header>
+
+  <div class="cuerpo">
+    <!-- Acciones de inicio (visible solo si pendiente) -->
+    <div id="bloque-inicio">
+      <button id="btn-iniciar" class="btn btn-verde">Iniciar Recorrido</button>
+      <button id="btn-no-asistir" class="btn btn-rojo-outline">No voy a asistir hoy</button>
+    </div>
+
+    <!-- Mensaje cuando ya completó o no asistió -->
+    <div id="bloque-mensaje" class="hidden"></div>
+
+    <!-- Lista de pasajeros -->
+    <ul id="lista-pasajeros"></ul>
+  </div>
+
+  <!-- Botón de llegada (fijo abajo, visible solo en_recorrido) -->
+  <div class="footer-fijo hidden" id="footer-llegada">
+    <button id="btn-llegar" class="btn btn-verde">✅ Llegué a la Oficina</button>
+  </div>
+</div>
+
+<script src="/socket.io/socket.io.js"></script>
+<script>
+  const socket = io();
+  let estado = null;
+
+  const $ = id => document.getElementById(id);
+
+  // ── PANTALLA DE CÓDIGO ──────────────────────────────────────
+  $('input-codigo').addEventListener('keydown', e => {
+    if (e.key === 'Enter') ingresar();
+  });
+
+  $('btn-ingresar').addEventListener('click', ingresar);
+
+  async function ingresar() {
+    const codigo = $('input-codigo').value.trim().toUpperCase();
+    if (!codigo) return mostrarError('Ingresá el código del recorrido');
+
+    $('btn-ingresar').disabled = true;
+    $('error-codigo').textContent = '';
+
+    try {
+      const res = await fetch(`/api/recorrido/${codigo}`);
+      if (!res.ok) {
+        mostrarError('Código no encontrado. Verificá con la oficina.');
+        return;
+      }
+      estado = await res.json();
+      localStorage.setItem('codigo', codigo);
+      socket.emit('join_recorrido', { codigo });
+      mostrarPantallaRecorrido();
+    } catch {
+      mostrarError('Error de conexión. Verificá tu internet.');
+    } finally {
+      $('btn-ingresar').disabled = false;
+    }
+  }
+
+  function mostrarError(msg) {
+    $('error-codigo').textContent = msg;
+  }
+
+  // ── PANTALLA DE RECORRIDO ───────────────────────────────────
+  function mostrarPantallaRecorrido() {
+    $('screen-codigo').style.display = 'none';
+    $('screen-recorrido').style.display = 'flex';
+    renderizarEstado();
+  }
+
+  function renderizarEstado() {
+    if (!estado) return;
+    const { recorrido, pasajeros, sesion, retiros } = estado;
+    const estadoSesion = sesion?.estado || 'pendiente';
+
+    $('nombre-recorrido').textContent = recorrido.nombre;
+
+    // Badge de estado
+    const badgeTextos = {
+      pendiente:    'Pendiente',
+      en_recorrido: 'En Recorrido',
+      completado:   '✓ Llegó',
+      no_asistio:   'No Asistió',
+    };
+    const badge = $('badge-estado');
+    badge.textContent = badgeTextos[estadoSesion] || 'Pendiente';
+    badge.className = `badge badge-${estadoSesion}`;
+
+    // Progreso
+    const totalRetirados = retiros.length;
+    const total = pasajeros.length;
+    $('progreso-texto').textContent =
+      `${totalRetirados} de ${total} persona${total !== 1 ? 's' : ''} retirada${totalRetirados !== 1 ? 's' : ''}`;
+    $('barra-progreso').style.width = total ? `${(totalRetirados / total) * 100}%` : '0%';
+
+    // Bloques visibles según estado
+    const bloqueInicio = $('bloque-inicio');
+    const bloqueMensaje = $('bloque-mensaje');
+    const footerLlegada = $('footer-llegada');
+
+    bloqueInicio.classList.add('hidden');
+    bloqueMensaje.classList.add('hidden');
+    footerLlegada.classList.add('hidden');
+
+    if (estadoSesion === 'pendiente') {
+      bloqueInicio.classList.remove('hidden');
+    } else if (estadoSesion === 'en_recorrido') {
+      footerLlegada.classList.remove('hidden');
+    } else if (estadoSesion === 'completado') {
+      bloqueMensaje.classList.remove('hidden');
+      bloqueMensaje.innerHTML = `
+        <div class="mensaje-estado">
+          <div class="estado-icono">🎉</div>
+          <h3>¡Llegaste a la oficina!</h3>
+          <p>Hora de llegada: <strong>${sesion.hora_llegada}</strong></p>
+          <p style="margin-top:4px">${totalRetirados} persona${totalRetirados !== 1 ? 's' : ''} traída${totalRetirados !== 1 ? 's' : ''}</p>
+        </div>`;
+    } else if (estadoSesion === 'no_asistio') {
+      bloqueMensaje.classList.remove('hidden');
+      bloqueMensaje.innerHTML = `
+        <div class="mensaje-estado">
+          <div class="estado-icono">❌</div>
+          <h3>Marcado como no asistió</h3>
+          <p>La oficina fue notificada. Si es un error, contactate con administración.</p>
+        </div>`;
+    }
+
+    // Lista de pasajeros
+    const lista = $('lista-pasajeros');
+    lista.innerHTML = '';
+    const retiradosIds = new Set(retiros.map(r => r.pasajero_id));
+
+    pasajeros.forEach(p => {
+      const fueRetirado = retiradosIds.has(p.id);
+      const retiro = retiros.find(r => r.pasajero_id === p.id);
+
+      const li = document.createElement('li');
+      li.className = `item-pasajero${fueRetirado ? ' retirado' : ''}`;
+
+      const puedeRetirar = estadoSesion === 'en_recorrido' && !fueRetirado;
+
+      li.innerHTML = `
+        <div class="pasajero-info">
+          <div class="pasajero-nombre">${esc(p.nombre)}</div>
+          ${fueRetirado ? `<div class="pasajero-hora">Retirado a las ${retiro.hora}</div>` : ''}
+        </div>
+        ${fueRetirado
+          ? `<span class="check-icono">✓</span>`
+          : `<button class="btn-retirar" ${puedeRetirar ? '' : 'disabled'} data-id="${p.id}">
+               Retirar
+             </button>`
+        }`;
+      lista.appendChild(li);
+    });
+
+    if (estadoSesion === 'en_recorrido') {
+      lista.querySelectorAll('.btn-retirar:not([disabled])').forEach(btn => {
+        btn.addEventListener('click', () => retirarPasajero(btn.dataset.id));
+      });
+    }
+  }
+
+  // ── ACCIONES ────────────────────────────────────────────────
+  $('btn-iniciar').addEventListener('click', () => {
+    if (!estado) return;
+    $('btn-iniciar').disabled = true;
+    socket.emit('iniciar_recorrido', { codigo: estado.recorrido.codigo });
+  });
+
+  $('btn-no-asistir').addEventListener('click', () => {
+    if (!confirm('¿Confirmás que no vas a asistir hoy?')) return;
+    socket.emit('no_asistir', { codigo: estado.recorrido.codigo });
+  });
+
+  $('btn-llegar').addEventListener('click', () => {
+    if (!estado?.sesion) return;
+    const retirados = estado.retiros.length;
+    const total = estado.pasajeros.length;
+    const msg = retirados < total
+      ? `¿Confirmás la llegada? Llevás ${retirados} de ${total} personas marcadas.`
+      : `¿Confirmás que llegaste a la oficina con ${retirados} persona${retirados !== 1 ? 's' : ''}?`;
+    if (!confirm(msg)) return;
+    $('btn-llegar').disabled = true;
+    socket.emit('llegar_oficina', { sesion_id: estado.sesion.id, codigo: estado.recorrido.codigo });
+  });
+
+  function retirarPasajero(pasajero_id) {
+    if (!estado?.sesion) return;
+    socket.emit('retirar_pasajero', {
+      sesion_id: estado.sesion.id,
+      pasajero_id: parseInt(pasajero_id),
+      codigo: estado.recorrido.codigo
+    });
+  }
+
+  // ── SOCKET EVENTS ───────────────────────────────────────────
+  socket.on('estado_recorrido', nuevoEstado => {
+    estado = nuevoEstado;
+    renderizarEstado();
+    $('btn-iniciar').disabled = false;
+    $('btn-llegar').disabled = false;
+  });
+
+  // ── AUTO-LOGIN con localStorage ─────────────────────────────
+  const codigoGuardado = localStorage.getItem('codigo');
+  if (codigoGuardado) {
+    $('input-codigo').value = codigoGuardado;
+    ingresar();
+  }
+
+  function esc(str) {
+    return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+</script>
+</body>
+</html>

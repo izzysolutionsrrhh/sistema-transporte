@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin - Recorridos</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --azul: #1d4ed8;
+      --verde: #15803d;
+      --rojo: #dc2626;
+      --gris: #6b7280;
+      --bg: #f1f5f9;
+      --card: #ffffff;
+      --borde: #e2e8f0;
+      --texto: #1e293b;
+      --muted: #64748b;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: var(--bg);
+      color: var(--texto);
+      min-height: 100vh;
+    }
+
+    header {
+      background: #1e293b;
+      color: white;
+      padding: 16px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    header h1 { font-size: 18px; font-weight: 700; }
+    header nav a {
+      color: #94a3b8;
+      text-decoration: none;
+      font-size: 14px;
+      margin-left: 20px;
+    }
+    header nav a:hover { color: white; }
+
+    .container { max-width: 960px; margin: 0 auto; padding: 24px 20px; }
+
+    h2 { font-size: 20px; font-weight: 700; margin-bottom: 16px; }
+
+    /* ── CARDS ──────────────────────────────────────── */
+    .card {
+      background: var(--card);
+      border: 1px solid var(--borde);
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 20px;
+    }
+
+    .card h3 {
+      font-size: 16px;
+      font-weight: 700;
+      margin-bottom: 16px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid var(--borde);
+    }
+
+    /* ── FORMULARIO ─────────────────────────────────── */
+    .form-row {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      align-items: flex-end;
+    }
+
+    .form-group { display: flex; flex-direction: column; gap: 6px; flex: 1; min-width: 160px; }
+    .form-group label { font-size: 13px; font-weight: 600; color: var(--muted); }
+    .form-group input, .form-group select {
+      padding: 10px 12px;
+      border: 1px solid var(--borde);
+      border-radius: 8px;
+      font-size: 15px;
+      outline: none;
+      background: white;
+    }
+    .form-group input:focus, .form-group select:focus { border-color: var(--azul); }
+
+    .btn {
+      padding: 10px 20px;
+      font-size: 14px;
+      font-weight: 700;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: opacity 0.15s;
+      white-space: nowrap;
+    }
+    .btn:hover { opacity: 0.85; }
+    .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .btn-azul { background: var(--azul); color: white; }
+    .btn-rojo { background: var(--rojo); color: white; }
+    .btn-rojo-sm { background: transparent; color: var(--rojo); border: 1px solid var(--rojo); padding: 5px 10px; font-size: 12px; border-radius: 6px; cursor: pointer; }
+    .btn-naranja-sm { background: transparent; color: #d97706; border: 1px solid #d97706; padding: 5px 10px; font-size: 12px; border-radius: 6px; cursor: pointer; }
+    .btn-rojo-sm:hover { background: var(--rojo); color: white; }
+    .btn-naranja-sm:hover { background: #d97706; color: white; }
+
+    .error-msg { color: var(--rojo); font-size: 13px; margin-top: 8px; min-height: 18px; }
+
+    /* ── LISTA RECORRIDOS ───────────────────────────── */
+    .recorrido-bloque {
+      border: 1px solid var(--borde);
+      border-radius: 10px;
+      margin-bottom: 12px;
+      overflow: hidden;
+    }
+
+    .recorrido-header {
+      background: #f8fafc;
+      padding: 14px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      cursor: pointer;
+      user-select: none;
+    }
+    .recorrido-header:hover { background: #f1f5f9; }
+
+    .recorrido-info { flex: 1; }
+    .recorrido-nombre { font-size: 16px; font-weight: 700; }
+    .recorrido-codigo { font-size: 12px; color: var(--muted); margin-top: 2px; }
+
+    .recorrido-acciones { display: flex; gap: 8px; align-items: center; }
+
+    .badge-count {
+      background: #e2e8f0;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+      padding: 3px 10px;
+      border-radius: 20px;
+    }
+
+    .chevron { color: var(--muted); transition: transform 0.2s; }
+    .chevron.abierto { transform: rotate(180deg); }
+
+    /* ── PASAJEROS ──────────────────────────────────── */
+    .pasajeros-panel {
+      display: none;
+      padding: 16px;
+      border-top: 1px solid var(--borde);
+      background: white;
+    }
+    .pasajeros-panel.abierto { display: block; }
+
+    .pasajero-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 12px;
+      border-radius: 8px;
+      margin-bottom: 6px;
+      background: #f8fafc;
+      font-size: 15px;
+    }
+
+    .form-agregar {
+      display: flex;
+      gap: 8px;
+      margin-top: 12px;
+      padding-top: 12px;
+      border-top: 1px solid var(--borde);
+    }
+
+    .form-agregar input {
+      flex: 1;
+      padding: 8px 12px;
+      border: 1px solid var(--borde);
+      border-radius: 8px;
+      font-size: 14px;
+      outline: none;
+    }
+    .form-agregar input:focus { border-color: var(--azul); }
+
+    .vacío { color: var(--muted); font-size: 14px; padding: 8px 0; }
+
+    /* ── RESET SESSION ──────────────────────────────── */
+    .reset-info { font-size: 12px; color: var(--muted); margin-top: 4px; }
+
+    /* ── TOAST ──────────────────────────────────────── */
+    #toast {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      background: #1e293b;
+      color: white;
+      padding: 12px 20px;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      transform: translateY(80px);
+      opacity: 0;
+      transition: transform 0.3s, opacity 0.3s;
+      z-index: 999;
+    }
+    #toast.visible { transform: translateY(0); opacity: 1; }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>⚙️ Panel de Administración</h1>
+  <nav>
+    <a href="/dashboard.html">📊 Dashboard</a>
+    <a href="/chofer.html">🚌 App Chofer</a>
+  </nav>
+</header>
+
+<div class="container">
+  <h2>Gestión de Recorridos</h2>
+
+  <!-- Crear recorrido -->
+  <div class="card">
+    <h3>➕ Nuevo Recorrido</h3>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Nombre del recorrido</label>
+        <input id="nuevo-nombre" type="text" placeholder="Ej: Recorrido Norte">
+      </div>
+      <div class="form-group" style="max-width:140px">
+        <label>Código (para el chofer)</label>
+        <input id="nuevo-codigo" type="text" placeholder="Ej: R01" maxlength="10" style="text-transform:uppercase">
+      </div>
+      <button class="btn btn-azul" onclick="crearRecorrido()">Crear</button>
+    </div>
+    <div class="error-msg" id="error-crear"></div>
+  </div>
+
+  <!-- Lista de recorridos -->
+  <div class="card">
+    <h3>🚌 Recorridos Configurados</h3>
+    <div id="lista-recorridos">
+      <div class="vacío">Cargando...</div>
+    </div>
+  </div>
+
+  <!-- Reset sesiones -->
+  <div class="card">
+    <h3>🔄 Reiniciar Sesión de Hoy</h3>
+    <p style="font-size:14px;color:var(--muted);margin-bottom:12px">
+      Usa esto si necesitás reiniciar el estado de un recorrido para el día de hoy (borra los registros de retiro y llegada de hoy).
+    </p>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Recorrido a reiniciar</label>
+        <select id="select-reset">
+          <option value="">Seleccioná un recorrido...</option>
+        </select>
+      </div>
+      <button class="btn btn-rojo" onclick="resetSesion()">Reiniciar</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+  let recorridos = [];
+
+  async function cargarRecorridos() {
+    const res = await fetch('/api/admin/recorridos');
+    recorridos = await res.json();
+    renderizarRecorridos();
+    actualizarSelectReset();
+  }
+
+  function renderizarRecorridos() {
+    const lista = document.getElementById('lista-recorridos');
+    if (!recorridos.length) {
+      lista.innerHTML = '<div class="vacío">No hay recorridos. Creá uno arriba.</div>';
+      return;
+    }
+
+    lista.innerHTML = '';
+    recorridos.forEach(r => {
+      const bloque = document.createElement('div');
+      bloque.className = 'recorrido-bloque';
+      bloque.dataset.id = r.id;
+
+      bloque.innerHTML = `
+        <div class="recorrido-header" onclick="togglePanel(${r.id})">
+          <div class="recorrido-info">
+            <div class="recorrido-nombre">${esc(r.nombre)}</div>
+            <div class="recorrido-codigo">Código: <strong>${esc(r.codigo)}</strong></div>
+          </div>
+          <div class="recorrido-acciones">
+            <span class="badge-count">${r.pasajeros.length} persona${r.pasajeros.length !== 1 ? 's' : ''}</span>
+            <button class="btn-rojo-sm" onclick="event.stopPropagation();eliminarRecorrido(${r.id})">Eliminar</button>
+            <span class="chevron" id="chevron-${r.id}">▼</span>
+          </div>
+        </div>
+        <div class="pasajeros-panel" id="panel-${r.id}">
+          <div id="pasajeros-${r.id}">
+            ${r.pasajeros.length
+              ? r.pasajeros.map(p => `
+                  <div class="pasajero-item" id="p-${p.id}">
+                    <span>${esc(p.nombre)}</span>
+                    <button class="btn-rojo-sm" onclick="eliminarPasajero(${p.id}, ${r.id})">Quitar</button>
+                  </div>`).join('')
+              : '<div class="vacío">Sin personas en este recorrido</div>'
+            }
+          </div>
+          <div class="form-agregar">
+            <input type="text" id="nuevo-pasajero-${r.id}" placeholder="Nombre de la persona..."
+                   onkeydown="if(event.key==='Enter') agregarPasajero(${r.id})">
+            <button class="btn btn-azul" onclick="agregarPasajero(${r.id})">Agregar</button>
+          </div>
+        </div>`;
+
+      lista.appendChild(bloque);
+    });
+  }
+
+  function togglePanel(recorrido_id) {
+    const panel = document.getElementById(`panel-${recorrido_id}`);
+    const chevron = document.getElementById(`chevron-${recorrido_id}`);
+    panel.classList.toggle('abierto');
+    chevron.classList.toggle('abierto');
+  }
+
+  async function crearRecorrido() {
+    const nombre = document.getElementById('nuevo-nombre').value.trim();
+    const codigo = document.getElementById('nuevo-codigo').value.trim().toUpperCase();
+    const err = document.getElementById('error-crear');
+
+    if (!nombre || !codigo) {
+      err.textContent = 'Completá el nombre y el código';
+      return;
+    }
+
+    const res = await fetch('/api/admin/recorrido', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ nombre, codigo })
+    });
+
+    if (!res.ok) {
+      const data = await res.json();
+      err.textContent = data.error || 'Error al crear';
+      return;
+    }
+
+    err.textContent = '';
+    document.getElementById('nuevo-nombre').value = '';
+    document.getElementById('nuevo-codigo').value = '';
+    toast('Recorrido creado');
+    await cargarRecorridos();
+  }
+
+  async function eliminarRecorrido(id) {
+    const r = recorridos.find(x => x.id === id);
+    if (!confirm(`¿Eliminar el recorrido "${r?.nombre}"? Esta acción no se puede deshacer.`)) return;
+    await fetch(`/api/admin/recorrido/${id}`, { method: 'DELETE' });
+    toast('Recorrido eliminado');
+    await cargarRecorridos();
+  }
+
+  async function agregarPasajero(recorrido_id) {
+    const input = document.getElementById(`nuevo-pasajero-${recorrido_id}`);
+    const nombre = input.value.trim();
+    if (!nombre) return;
+
+    const res = await fetch('/api/admin/pasajero', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ nombre, recorrido_id })
+    });
+
+    if (!res.ok) return;
+    input.value = '';
+    toast(`${nombre} agregado`);
+    await cargarRecorridos();
+
+    // Reabrir el panel si estaba abierto
+    const panel = document.getElementById(`panel-${recorrido_id}`);
+    if (!panel.classList.contains('abierto')) togglePanel(recorrido_id);
+  }
+
+  async function eliminarPasajero(id, recorrido_id) {
+    const r = recorridos.find(x => x.id === recorrido_id);
+    const p = r?.pasajeros.find(x => x.id === id);
+    if (!confirm(`¿Quitar a "${p?.nombre}" del recorrido?`)) return;
+    await fetch(`/api/admin/pasajero/${id}`, { method: 'DELETE' });
+    toast('Persona eliminada');
+    const estabaAbierto = document.getElementById(`panel-${recorrido_id}`)?.classList.contains('abierto');
+    await cargarRecorridos();
+    if (estabaAbierto) {
+      const panel = document.getElementById(`panel-${recorrido_id}`);
+      if (panel && !panel.classList.contains('abierto')) togglePanel(recorrido_id);
+    }
+  }
+
+  function actualizarSelectReset() {
+    const select = document.getElementById('select-reset');
+    select.innerHTML = '<option value="">Seleccioná un recorrido...</option>';
+    recorridos.forEach(r => {
+      const opt = document.createElement('option');
+      opt.value = r.id;
+      opt.textContent = `${r.nombre} (${r.codigo})`;
+      select.appendChild(opt);
+    });
+  }
+
+  async function resetSesion() {
+    const recorrido_id = document.getElementById('select-reset').value;
+    if (!recorrido_id) { alert('Seleccioná un recorrido'); return; }
+    const r = recorridos.find(x => x.id == recorrido_id);
+    if (!confirm(`¿Reiniciar la sesión de hoy para "${r?.nombre}"? Se borrarán todos los registros de hoy.`)) return;
+    await fetch('/api/admin/reset', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ recorrido_id: parseInt(recorrido_id) })
+    });
+    toast('Sesión reiniciada');
+  }
+
+  let toastTimer;
+  function toast(msg) {
+    const el = document.getElementById('toast');
+    el.textContent = msg;
+    el.classList.add('visible');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => el.classList.remove('visible'), 3000);
+  }
+
+  function esc(str) {
+    return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  cargarRecorridos();
+</script>
+</body>
+</html>

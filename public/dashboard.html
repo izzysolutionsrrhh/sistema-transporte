@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard - Recorridos</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --azul: #1d4ed8;
+      --verde: #15803d;
+      --rojo: #dc2626;
+      --naranja: #d97706;
+      --gris: #6b7280;
+      --bg: #0f172a;
+      --card-bg: #1e293b;
+      --borde: #334155;
+      --texto: #f1f5f9;
+      --texto-muted: #94a3b8;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: var(--bg);
+      color: var(--texto);
+      height: 100vh;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── HEADER ──────────────────────────────────────────── */
+    header {
+      background: var(--card-bg);
+      border-bottom: 1px solid var(--borde);
+      padding: 14px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-shrink: 0;
+    }
+
+    header h1 { font-size: 20px; font-weight: 700; }
+    header h1 span { color: var(--azul); }
+
+    .header-meta {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+      font-size: 14px;
+      color: var(--texto-muted);
+    }
+
+    #reloj { font-size: 22px; font-weight: 700; color: var(--texto); font-variant-numeric: tabular-nums; }
+
+    .dot-live { width: 8px; height: 8px; border-radius: 50%; background: #22c55e; box-shadow: 0 0 0 0 rgba(34,197,94,0.4); animation: pulse 2s infinite; }
+    @keyframes pulse { 0%,100%{box-shadow:0 0 0 0 rgba(34,197,94,0.4)} 50%{box-shadow:0 0 0 8px rgba(34,197,94,0)} }
+
+    /* ── LAYOUT PRINCIPAL ────────────────────────────────── */
+    .main {
+      display: flex;
+      flex: 1;
+      overflow: hidden;
+    }
+
+    /* ── PANEL RECORRIDOS ────────────────────────────────── */
+    .panel-recorridos {
+      flex: 1;
+      overflow-y: auto;
+      padding: 20px;
+    }
+
+    /* ── STATS GLOBALES ──────────────────────────────────── */
+    .stats-globales {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+
+    .stat-card {
+      background: var(--card-bg);
+      border: 1px solid var(--borde);
+      border-radius: 10px;
+      padding: 14px 16px;
+      text-align: center;
+    }
+    .stat-card .stat-valor { font-size: 28px; font-weight: 800; line-height: 1; }
+    .stat-card .stat-label { font-size: 12px; color: var(--texto-muted); margin-top: 4px; }
+    .stat-card.verde .stat-valor { color: #4ade80; }
+    .stat-card.azul .stat-valor  { color: #60a5fa; }
+    .stat-card.gris .stat-valor  { color: var(--texto-muted); }
+    .stat-card.rojo .stat-valor  { color: #f87171; }
+
+    /* ── GRID TARJETAS ───────────────────────────────────── */
+    #grid-recorridos {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 14px;
+    }
+
+    /* ── TARJETA RECORRIDO ───────────────────────────────── */
+    .tarjeta {
+      background: var(--card-bg);
+      border: 1px solid var(--borde);
+      border-radius: 12px;
+      padding: 16px;
+      transition: border-color 0.3s;
+    }
+
+    .tarjeta.estado-en_recorrido { border-left: 4px solid #f59e0b; }
+    .tarjeta.estado-completado   { border-left: 4px solid #22c55e; }
+    .tarjeta.estado-no_asistio   { border-left: 4px solid var(--rojo); }
+    .tarjeta.estado-pendiente    { border-left: 4px solid var(--borde); }
+
+    .tarjeta-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      margin-bottom: 12px;
+      gap: 8px;
+    }
+
+    .tarjeta-nombre {
+      font-size: 18px;
+      font-weight: 700;
+      line-height: 1.2;
+    }
+
+    .tarjeta-codigo {
+      font-size: 12px;
+      color: var(--texto-muted);
+      margin-top: 2px;
+    }
+
+    .badge {
+      font-size: 11px;
+      font-weight: 700;
+      padding: 3px 10px;
+      border-radius: 20px;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+    .badge-pendiente    { background: #334155; color: #94a3b8; }
+    .badge-en_recorrido { background: #451a03; color: #fbbf24; }
+    .badge-completado   { background: #052e16; color: #4ade80; }
+    .badge-no_asistio   { background: #450a0a; color: #f87171; }
+
+    /* ── PROGRESO ────────────────────────────────────────── */
+    .progreso-info {
+      display: flex;
+      justify-content: space-between;
+      font-size: 13px;
+      color: var(--texto-muted);
+      margin-bottom: 6px;
+    }
+    .progreso-info strong { color: var(--texto); }
+
+    .barra-outer {
+      height: 8px;
+      background: #334155;
+      border-radius: 4px;
+      overflow: hidden;
+      margin-bottom: 12px;
+    }
+    .barra-inner {
+      height: 100%;
+      background: #22c55e;
+      border-radius: 4px;
+      transition: width 0.5s ease;
+    }
+
+    /* ── HORA INFO ───────────────────────────────────────── */
+    .hora-info {
+      display: flex;
+      gap: 16px;
+      font-size: 12px;
+      color: var(--texto-muted);
+      margin-bottom: 10px;
+    }
+    .hora-info span strong { color: var(--texto); }
+
+    /* ── LISTA PASAJEROS EN TARJETA ──────────────────────── */
+    .toggle-pasajeros {
+      background: none;
+      border: none;
+      color: var(--texto-muted);
+      font-size: 12px;
+      cursor: pointer;
+      padding: 0;
+      text-decoration: underline;
+    }
+    .toggle-pasajeros:hover { color: var(--texto); }
+
+    .pasajeros-lista {
+      margin-top: 10px;
+      display: none;
+      border-top: 1px solid var(--borde);
+      padding-top: 10px;
+    }
+    .pasajeros-lista.abierta { display: block; }
+
+    .pasajero-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 5px 0;
+      font-size: 13px;
+      border-bottom: 1px solid #1e293b;
+    }
+    .pasajero-row:last-child { border-bottom: none; }
+    .pasajero-row .nombre { color: var(--texto); }
+    .pasajero-row .hora-retiro { color: #4ade80; font-size: 12px; }
+    .pasajero-row .pendiente { color: var(--texto-muted); font-size: 12px; }
+
+    /* ── LOG ─────────────────────────────────────────────── */
+    .panel-log {
+      width: 300px;
+      flex-shrink: 0;
+      background: var(--card-bg);
+      border-left: 1px solid var(--borde);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .log-header {
+      padding: 14px 16px;
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--texto-muted);
+      border-bottom: 1px solid var(--borde);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    #log-lista {
+      flex: 1;
+      overflow-y: auto;
+      padding: 8px;
+    }
+
+    .log-item {
+      padding: 8px 10px;
+      border-radius: 6px;
+      font-size: 12px;
+      margin-bottom: 4px;
+      line-height: 1.4;
+    }
+    .log-item .log-hora { color: var(--texto-muted); font-size: 11px; }
+    .log-item .log-texto { color: var(--texto); margin-top: 2px; }
+    .log-item.tipo-inicio   { background: #1e3a5f; }
+    .log-item.tipo-retiro   { background: #1a2e1a; }
+    .log-item.tipo-llegada  { background: #052e16; }
+    .log-item.tipo-ausencia { background: #2d1a1a; }
+
+    /* ── TOAST ALERTA ────────────────────────────────────── */
+    #toast {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%) translateY(100px);
+      background: #052e16;
+      border: 1px solid #22c55e;
+      color: #4ade80;
+      padding: 16px 24px;
+      border-radius: 12px;
+      font-size: 16px;
+      font-weight: 600;
+      text-align: center;
+      z-index: 999;
+      transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+      max-width: 90vw;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+    }
+    #toast.visible { transform: translateX(-50%) translateY(0); }
+
+    /* ── VACÍO ───────────────────────────────────────────── */
+    .vacio {
+      text-align: center;
+      padding: 60px 20px;
+      color: var(--texto-muted);
+    }
+    .vacio .icono { font-size: 48px; margin-bottom: 12px; }
+    .vacio h3 { font-size: 18px; margin-bottom: 8px; }
+    .vacio a { color: #60a5fa; }
+
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>🚌 Sistema de <span>Recorridos</span></h1>
+  <div class="header-meta">
+    <div style="display:flex;align-items:center;gap:6px">
+      <div class="dot-live"></div>
+      <span>EN VIVO</span>
+    </div>
+    <div id="fecha-hoy"></div>
+    <div id="reloj">00:00:00</div>
+  </div>
+</header>
+
+<div class="main">
+  <!-- Panel principal -->
+  <div class="panel-recorridos">
+    <!-- Stats globales -->
+    <div class="stats-globales">
+      <div class="stat-card verde">
+        <div class="stat-valor" id="stat-llegaron">0</div>
+        <div class="stat-label">Llegaron</div>
+      </div>
+      <div class="stat-card azul">
+        <div class="stat-valor" id="stat-en-camino">0</div>
+        <div class="stat-label">En camino</div>
+      </div>
+      <div class="stat-card gris">
+        <div class="stat-valor" id="stat-pendientes">0</div>
+        <div class="stat-label">Pendientes</div>
+      </div>
+      <div class="stat-card rojo">
+        <div class="stat-valor" id="stat-ausentes">0</div>
+        <div class="stat-label">Ausentes</div>
+      </div>
+    </div>
+
+    <!-- Grid de recorridos -->
+    <div id="grid-recorridos">
+      <div class="vacio">
+        <div class="icono">🔄</div>
+        <h3>Cargando recorridos...</h3>
+      </div>
+    </div>
+  </div>
+
+  <!-- Panel de log -->
+  <div class="panel-log">
+    <div class="log-header">📋 Actividad de hoy</div>
+    <div id="log-lista">
+      <div style="padding:20px;color:#475569;font-size:12px;text-align:center">
+        Los eventos aparecerán aquí
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script src="/socket.io/socket.io.js"></script>
+<script>
+  const socket = io();
+  const logEventos = [];
+
+  socket.on('connect', () => {
+    socket.emit('join_dashboard');
+  });
+
+  socket.on('estado_completo', (datos) => {
+    renderizarDashboard(datos);
+  });
+
+  socket.on('alerta_llegada', ({ recorrido, hora, retirados, total }) => {
+    mostrarToast(`🎉 ${recorrido} llegó a las ${hora} con ${retirados}/${total} personas`);
+    agregarLog('llegada', `<strong>${recorrido}</strong> llegó a la oficina a las <strong>${hora}</strong> con <strong>${retirados}/${total}</strong> personas`);
+    if ('Notification' in window && Notification.permission === 'granted') {
+      new Notification('🚌 Recorrido llegó', { body: `${recorrido} llegó a las ${hora}` });
+    }
+  });
+
+  function renderizarDashboard(datos) {
+    if (!datos.length) {
+      document.getElementById('grid-recorridos').innerHTML = `
+        <div class="vacio">
+          <div class="icono">🚌</div>
+          <h3>No hay recorridos configurados</h3>
+          <p>Andá al <a href="/admin.html">panel de administración</a> para crear recorridos.</p>
+        </div>`;
+      return;
+    }
+
+    // Stats globales
+    let llegaron = 0, enCamino = 0, pendientes = 0, ausentes = 0;
+    datos.forEach(({ sesion }) => {
+      const est = sesion?.estado || 'pendiente';
+      if (est === 'completado')   llegaron++;
+      else if (est === 'en_recorrido') enCamino++;
+      else if (est === 'no_asistio')   ausentes++;
+      else pendientes++;
+    });
+    document.getElementById('stat-llegaron').textContent = llegaron;
+    document.getElementById('stat-en-camino').textContent = enCamino;
+    document.getElementById('stat-pendientes').textContent = pendientes;
+    document.getElementById('stat-ausentes').textContent = ausentes;
+
+    // Tarjetas
+    const grid = document.getElementById('grid-recorridos');
+    const estadoAnterior = {};
+    grid.querySelectorAll('.tarjeta').forEach(t => {
+      estadoAnterior[t.dataset.id] = {
+        abierto: t.querySelector('.pasajeros-lista')?.classList.contains('abierta'),
+        estado: t.dataset.estado
+      };
+    });
+
+    grid.innerHTML = '';
+    datos.forEach(item => renderizarTarjeta(grid, item, estadoAnterior));
+  }
+
+  function renderizarTarjeta(grid, { recorrido, pasajeros, sesion, retiros }, estadoAnterior) {
+    const estadoSesion = sesion?.estado || 'pendiente';
+    const prev = estadoAnterior[recorrido.id] || {};
+
+    // Detectar cambios de estado para agregar al log
+    if (prev.estado && prev.estado !== estadoSesion) {
+      const textos = {
+        en_recorrido: `<strong>${recorrido.nombre}</strong> inició el recorrido a las <strong>${sesion?.hora_inicio || '—'}</strong>`,
+        completado: `<strong>${recorrido.nombre}</strong> llegó a la oficina a las <strong>${sesion?.hora_llegada || '—'}</strong>`,
+        no_asistio: `<strong>${recorrido.nombre}</strong> marcó que no asiste hoy`,
+      };
+      if (textos[estadoSesion]) {
+        const tipo = estadoSesion === 'en_recorrido' ? 'inicio'
+                   : estadoSesion === 'completado'   ? 'llegada'
+                   : 'ausencia';
+        agregarLog(tipo, textos[estadoSesion]);
+      }
+    }
+
+    const totalRetirados = retiros.length;
+    const total = pasajeros.length;
+    const pct = total ? Math.round((totalRetirados / total) * 100) : 0;
+
+    const badgeTextos = {
+      pendiente: 'Pendiente', en_recorrido: 'En camino',
+      completado: 'Llegó ✓', no_asistio: 'Ausente ✗'
+    };
+
+    const div = document.createElement('div');
+    div.className = `tarjeta estado-${estadoSesion}`;
+    div.dataset.id = recorrido.id;
+    div.dataset.estado = estadoSesion;
+
+    div.innerHTML = `
+      <div class="tarjeta-header">
+        <div>
+          <div class="tarjeta-nombre">${esc(recorrido.nombre)}</div>
+          <div class="tarjeta-codigo">Código: ${esc(recorrido.codigo)}</div>
+        </div>
+        <span class="badge badge-${estadoSesion}">${badgeTextos[estadoSesion]}</span>
+      </div>
+
+      <div class="progreso-info">
+        <span><strong>${totalRetirados}</strong> / ${total} personas retiradas</span>
+        <span>${pct}%</span>
+      </div>
+      <div class="barra-outer">
+        <div class="barra-inner" style="width:${pct}%"></div>
+      </div>
+
+      <div class="hora-info">
+        ${sesion?.hora_inicio  ? `<span>🚀 Salida: <strong>${sesion.hora_inicio}</strong></span>` : ''}
+        ${sesion?.hora_llegada ? `<span>🏁 Llegada: <strong>${sesion.hora_llegada}</strong></span>` : ''}
+      </div>
+
+      <button class="toggle-pasajeros" onclick="togglePasajeros(this)">
+        Ver personas (${total})
+      </button>
+      <div class="pasajeros-lista ${prev.abierto ? 'abierta' : ''}">
+        ${pasajeros.map(p => {
+          const r = retiros.find(x => x.pasajero_id === p.id);
+          return `<div class="pasajero-row">
+            <span class="nombre">${esc(p.nombre)}</span>
+            ${r ? `<span class="hora-retiro">✓ ${r.hora}</span>`
+                : `<span class="pendiente">Pendiente</span>`}
+          </div>`;
+        }).join('')}
+      </div>`;
+
+    grid.appendChild(div);
+  }
+
+  function togglePasajeros(btn) {
+    const lista = btn.nextElementSibling;
+    lista.classList.toggle('abierta');
+    btn.textContent = lista.classList.contains('abierta')
+      ? btn.textContent.replace('Ver', 'Ocultar')
+      : btn.textContent.replace('Ocultar', 'Ver');
+  }
+
+  function agregarLog(tipo, texto) {
+    const hora = new Date().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
+    const div = document.createElement('div');
+    div.className = `log-item tipo-${tipo}`;
+    div.innerHTML = `<div class="log-hora">${hora}</div><div class="log-texto">${texto}</div>`;
+
+    const lista = document.getElementById('log-lista');
+    if (lista.querySelector('[style]')) lista.innerHTML = '';
+    lista.prepend(div);
+    if (lista.children.length > 50) lista.removeChild(lista.lastChild);
+  }
+
+  let toastTimer;
+  function mostrarToast(msg) {
+    const toast = document.getElementById('toast');
+    toast.textContent = msg;
+    toast.classList.add('visible');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => toast.classList.remove('visible'), 8000);
+  }
+
+  // Reloj y fecha
+  function actualizarReloj() {
+    const ahora = new Date();
+    document.getElementById('reloj').textContent = ahora.toLocaleTimeString('es-AR', { hour12: false });
+    document.getElementById('fecha-hoy').textContent = ahora.toLocaleDateString('es-AR', {
+      weekday: 'long', day: 'numeric', month: 'long'
+    });
+  }
+  actualizarReloj();
+  setInterval(actualizarReloj, 1000);
+
+  // Pedir permiso para notificaciones
+  if ('Notification' in window && Notification.permission === 'default') {
+    Notification.requestPermission();
+  }
+
+  function esc(str) {
+    return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+</script>
+</body>
+</html>
