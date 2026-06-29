@@ -351,4 +351,60 @@ module.exports = {
     const { rows } = await pool.query('SELECT datos FROM reportes WHERE fecha = $1', [fecha]);
     return rows[0]?.datos || null;
   },
+
+  async importarRecorridos(filas) {
+    let recorridosCreados = 0, pasajerosCreados = 0;
+    const errores = [];
+
+    for (const fila of filas) {
+      const nombre = fila['recorrido']?.toString().trim();
+      const codigo = fila['placa']?.toString().trim().toUpperCase();
+      if (!nombre || !codigo) continue;
+
+      const pasajeros = Object.entries(fila)
+        .filter(([k, v]) => /^pasajero\d+$/i.test(k) && v?.toString().trim())
+        .sort(([a], [b]) => a.localeCompare(b, undefined, { numeric: true }))
+        .map(([, v]) => v.toString().trim())
+        .filter(Boolean);
+
+      let recorrido_id;
+      try {
+        const { rows } = await pool.query(
+          `INSERT INTO recorridos (nombre, codigo) VALUES ($1, $2)
+           ON CONFLICT (codigo) WHERE activo = TRUE DO NOTHING
+           RETURNING id`,
+          [nombre, codigo]
+        );
+        if (rows[0]) {
+          recorrido_id = rows[0].id;
+          recorridosCreados++;
+        } else {
+          const { rows: ex } = await pool.query(
+            'SELECT id FROM recorridos WHERE codigo = $1 AND activo = TRUE', [codigo]
+          );
+          recorrido_id = ex[0]?.id;
+          if (recorrido_id) errores.push(`Placa ${codigo} ya existía — pasajeros agregados igual`);
+        }
+      } catch (err) {
+        errores.push(`Placa ${codigo}: ${err.message}`);
+        continue;
+      }
+
+      if (!recorrido_id) continue;
+
+      for (const nombrePax of pasajeros) {
+        const { rows } = await pool.query(
+          'SELECT COALESCE(MAX(orden), 0) + 1 AS sig FROM pasajeros WHERE recorrido_id = $1',
+          [recorrido_id]
+        );
+        await pool.query(
+          'INSERT INTO pasajeros (nombre, recorrido_id, orden) VALUES ($1, $2, $3)',
+          [nombrePax, recorrido_id, rows[0].sig]
+        );
+        pasajerosCreados++;
+      }
+    }
+
+    return { recorridosCreados, pasajerosCreados, errores };
+  },
 };
