@@ -1,21 +1,43 @@
+require('dotenv').config();
 const express = require('express');
 const { createServer } = require('http');
 const { Server } = require('socket.io');
 const path = require('path');
 const XLSX = require('xlsx');
+const rateLimit = require('express-rate-limit');
 const db = require('./db');
 
 const app = express();
 const httpServer = createServer(app);
-const io = new Server(httpServer);
+const io = new Server(httpServer, {
+  cors: {
+    origin: process.env.ALLOWED_ORIGIN || '*',
+    methods: ['GET', 'POST'],
+  },
+});
 
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
 // ─── AUTH ─────────────────────────────────────────────────────────────────────
 
-const ADMIN_USER = process.env.ADMIN_USER || '1793209215001';
-const ADMIN_PASS = process.env.ADMIN_PASS || 'Izzy2026';
+const ADMIN_USER = process.env.ADMIN_USER;
+const ADMIN_PASS = process.env.ADMIN_PASS;
+
+if (!ADMIN_USER || !ADMIN_PASS) {
+  console.error('\n⚠️  ERROR: Variables de entorno ADMIN_USER y ADMIN_PASS son requeridas.');
+  console.error('   Creá un archivo .env o seteá las variables en tu servicio de hosting.\n');
+  process.exit(1);
+}
+
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  message: { error: 'Demasiados intentos. Esperá 15 minutos.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
 const tokens = new Set();
 
 function requireAdmin(req, res, next) {
@@ -24,7 +46,7 @@ function requireAdmin(req, res, next) {
   next();
 }
 
-app.post('/api/admin/login', (req, res) => {
+app.post('/api/admin/login', loginLimiter, (req, res) => {
   const { usuario, clave } = req.body;
   if (usuario === ADMIN_USER && clave === ADMIN_PASS) {
     const token = Math.random().toString(36).slice(2) + Date.now().toString(36);
