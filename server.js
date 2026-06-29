@@ -127,14 +127,16 @@ app.post('/api/admin/reset', requireAdmin, async (req, res) => {
 app.post('/api/admin/aviso', requireAdmin, async (req, res) => {
   const { recorrido_id, pasajero_id } = req.body;
   if (!recorrido_id || !pasajero_id) return res.status(400).json({ error: 'Faltan datos' });
-  await db.marcarAviso(recorrido_id, pasajero_id, hora());
+  const estadoRec = await db.marcarAviso(recorrido_id, pasajero_id, hora());
+  io.to(`r:${estadoRec.recorrido.codigo}`).emit('estado_recorrido', estadoRec);
   io.emit('estado_completo', await db.getEstadoTodos());
   res.json({ ok: true });
 });
 
 app.delete('/api/admin/aviso', requireAdmin, async (req, res) => {
   const { recorrido_id, pasajero_id } = req.body;
-  await db.desmarcarAviso(recorrido_id, pasajero_id);
+  const estadoRec = await db.desmarcarAviso(recorrido_id, pasajero_id);
+  if (estadoRec) io.to(`r:${estadoRec.recorrido.codigo}`).emit('estado_recorrido', estadoRec);
   io.emit('estado_completo', await db.getEstadoTodos());
   res.json({ ok: true });
 });
