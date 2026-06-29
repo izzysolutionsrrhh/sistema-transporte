@@ -7,9 +7,10 @@ const pool = new Pool({
     : false,
 });
 
+const TZ = process.env.APP_TIMEZONE || 'America/Lima';
+
 function fechaHoy() {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  return new Date().toLocaleDateString('en-CA', { timeZone: TZ });
 }
 
 async function sesionHoy(recorrido_id) {
@@ -325,8 +326,8 @@ module.exports = {
     }));
     return {
       fecha,
-      generado: new Date().toLocaleTimeString('es-AR', {
-        hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false,
+      generado: new Date().toLocaleTimeString('es-PE', {
+        hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false, timeZone: TZ,
       }),
       recorridos: recorridosData,
     };

@@ -257,8 +257,10 @@ async function broadcastActualizacion(codigo, estadoRecorrido) {
 }
 
 function hora() {
-  return new Date().toLocaleTimeString('es-AR', {
-    hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false,
+  return new Date().toLocaleTimeString('es-PE', {
+    hour: '2-digit', minute: '2-digit', second: '2-digit',
+    hour12: false,
+    timeZone: process.env.APP_TIMEZONE || 'America/Lima',
   });
 }
 
