@@ -669,9 +669,10 @@
       pendiente:    { txt: 'Pendiente',    bg: '#f1f5f9', color: '#64748b' },
     };
     const tipoCfg = {
-      recogido:  { txt: '✓ Recogido',   color: 'var(--verde)' },
-      no_estaba: { txt: '✗ No estaba',  color: 'var(--rojo)'  },
-      pendiente: { txt: 'Pendiente',    color: 'var(--gris)'  },
+      recogido:  { txt: '✓ Recogido',        color: 'var(--verde)' },
+      no_estaba: { txt: '✗ No estaba',        color: 'var(--rojo)'  },
+      aviso:     { txt: '📵 Avisó que no va', color: '#7c3aed'      },
+      pendiente: { txt: 'Pendiente',          color: 'var(--gris)'  },
     };
 
     contenido.innerHTML = data.sesiones.map((s, i) => {
@@ -685,7 +686,7 @@
           <div class="sesion-card-header" onclick="toggleSesion(${i})">
             <div>
               <div class="sesion-fecha">${d}/${m}/${a}</div>
-              <div class="sesion-stats">${s.recogidos} recogidos · ${s.no_estaban} no estaban · ${s.total} total</div>
+              <div class="sesion-stats">${s.recogidos} recogidos · ${s.no_estaban} no estaban · ${s.detalle.filter(p=>p.tipo==='aviso').length} avisaron · ${s.total} total</div>
               ${horas ? `<div class="sesion-stats">${horas}</div>` : ''}
             </div>
             <span class="sesion-badge" style="background:${badge.bg};color:${badge.color}">${badge.txt}</span>
