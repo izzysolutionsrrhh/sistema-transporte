@@ -186,6 +186,47 @@
     /* ── RESET SESSION ──────────────────────────────── */
     .reset-info { font-size: 12px; color: var(--muted); margin-top: 4px; }
 
+    /* ── AVISO ──────────────────────────────────────── */
+    .btn-aviso-sm {
+      background: transparent;
+      color: #7c3aed;
+      border: 1px solid #7c3aed;
+      padding: 5px 10px;
+      font-size: 12px;
+      border-radius: 6px;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .btn-aviso-sm:hover { background: #7c3aed; color: white; }
+    .texto-aviso { color: #7c3aed; font-size: 12px; font-weight: 700; }
+
+    /* ── REPORTES ───────────────────────────────────── */
+    .reporte-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 14px;
+      background: #f8fafc;
+      border-radius: 8px;
+      margin-bottom: 8px;
+      font-size: 14px;
+    }
+    .reporte-item .reporte-fecha { font-weight: 700; }
+    .reporte-item .reporte-meta  { color: var(--muted); font-size: 12px; margin-top: 2px; }
+    .btn-csv {
+      background: #16a34a;
+      color: white;
+      padding: 6px 14px;
+      font-size: 13px;
+      font-weight: 700;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      text-decoration: none;
+      display: inline-block;
+    }
+    .btn-csv:hover { opacity: 0.85; }
+
     /* ── TOAST ──────────────────────────────────────── */
     #toast {
       position: fixed;
@@ -227,8 +268,8 @@
         <input id="nuevo-nombre" type="text" placeholder="Ej: Recorrido Norte">
       </div>
       <div class="form-group" style="max-width:140px">
-        <label>Código (para el chofer)</label>
-        <input id="nuevo-codigo" type="text" placeholder="Ej: R01" maxlength="10" style="text-transform:uppercase">
+        <label>Placa del auto</label>
+        <input id="nuevo-codigo" type="text" placeholder="Ej: ABC123" maxlength="10" style="text-transform:uppercase">
       </div>
       <button class="btn btn-azul" onclick="crearRecorrido()">Crear</button>
     </div>
@@ -241,6 +282,32 @@
     <div id="lista-recorridos">
       <div class="vacío">Cargando...</div>
     </div>
+  </div>
+
+  <!-- Estado del día -->
+  <div class="card">
+    <h3>📵 Avisos del día — pasajeros que no van</h3>
+    <p style="font-size:14px;color:var(--muted);margin-bottom:16px">
+      Marcá acá a los pasajeros que avisaron que no irán hoy. El chofer lo verá en su app.
+    </p>
+    <div id="estado-dia"><div class="vacío">Cargando...</div></div>
+  </div>
+
+  <!-- Reportes diarios -->
+  <div class="card">
+    <h3>📊 Reportes Diarios</h3>
+    <p style="font-size:14px;color:var(--muted);margin-bottom:16px">
+      El reporte se guarda automáticamente cada vez que un chofer llega a la oficina.
+      También podés generarlo manualmente en cualquier momento.
+    </p>
+    <div class="form-row" style="margin-bottom:16px;align-items:flex-end">
+      <div class="form-group" style="max-width:200px">
+        <label>Fecha del reporte</label>
+        <input type="date" id="fecha-reporte">
+      </div>
+      <button class="btn btn-azul" onclick="generarReporte()">Generar reporte</button>
+    </div>
+    <div id="lista-reportes"><div class="vacío">Cargando...</div></div>
   </div>
 
   <!-- Reset sesiones -->
@@ -290,7 +357,7 @@
         <div class="recorrido-header" onclick="togglePanel(${r.id})">
           <div class="recorrido-info">
             <div class="recorrido-nombre">${esc(r.nombre)}</div>
-            <div class="recorrido-codigo">Código: <strong>${esc(r.codigo)}</strong></div>
+            <div class="recorrido-codigo">Placa: <strong>${esc(r.codigo)}</strong></div>
           </div>
           <div class="recorrido-acciones">
             <span class="badge-count">${r.pasajeros.length} persona${r.pasajeros.length !== 1 ? 's' : ''}</span>
@@ -437,6 +504,105 @@
   }
 
   cargarRecorridos();
+  cargarReportes();
+  cargarEstadoDia();
+  document.getElementById('fecha-reporte').value = new Date().toISOString().slice(0, 10);
+
+  async function cargarEstadoDia() {
+    const res   = await fetch('/api/dashboard');
+    const datos = await res.json();
+    const cont  = document.getElementById('estado-dia');
+    if (!datos.length) { cont.innerHTML = '<div class="vacío">No hay recorridos configurados.</div>'; return; }
+
+    cont.innerHTML = datos.map(({ recorrido, pasajeros, retiros }) => {
+      const marcados = {};
+      retiros.forEach(r => { marcados[r.pasajero_id] = r.tipo; });
+      const filas = pasajeros.length
+        ? pasajeros.map(p => {
+            const tipo = marcados[p.id];
+            const esAviso    = tipo === 'aviso';
+            const estaOcupado = tipo && tipo !== 'aviso';
+            return `<div class="pasajero-item">
+              <span class="${esAviso ? 'texto-aviso' : ''}">${esc(p.nombre)}${esAviso ? ' · Avisó que no va' : ''}</span>
+              ${estaOcupado
+                ? `<span style="font-size:12px;color:var(--muted)">${tipo === 'recogido' ? 'Recogido' : 'No estaba'}</span>`
+                : esAviso
+                  ? `<button class="btn-naranja-sm" onclick="desmarcarAviso(${recorrido.id},${p.id})">↩ Desmarcar</button>`
+                  : `<button class="btn-aviso-sm" onclick="marcarAviso(${recorrido.id},${p.id})">📵 Avisó que no va</button>`
+              }
+            </div>`;
+          }).join('')
+        : '<div class="vacío">Sin pasajeros</div>';
+
+      return `<div class="recorrido-bloque">
+        <div class="recorrido-header" style="cursor:default">
+          <div class="recorrido-info">
+            <div class="recorrido-nombre">${esc(recorrido.nombre)}</div>
+            <div class="recorrido-codigo">Placa: <strong>${esc(recorrido.codigo)}</strong></div>
+          </div>
+        </div>
+        <div class="pasajeros-panel abierto">${filas}</div>
+      </div>`;
+    }).join('');
+  }
+
+  async function marcarAviso(recorrido_id, pasajero_id) {
+    await fetch('/api/admin/aviso', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ recorrido_id, pasajero_id }),
+    });
+    toast('Aviso registrado');
+    cargarEstadoDia();
+  }
+
+  async function desmarcarAviso(recorrido_id, pasajero_id) {
+    await fetch('/api/admin/aviso', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ recorrido_id, pasajero_id }),
+    });
+    toast('Aviso eliminado');
+    cargarEstadoDia();
+  }
+
+  async function cargarReportes() {
+    const res = await fetch('/api/admin/reportes');
+    const fechas = await res.json();
+    const lista = document.getElementById('lista-reportes');
+    if (!fechas.length) {
+      lista.innerHTML = '<div class="vacío">No hay reportes todavía.</div>';
+      return;
+    }
+    lista.innerHTML = fechas.map(fecha => {
+      const [anio, mes, dia] = fecha.split('-');
+      const label = `${dia}/${mes}/${anio}`;
+      return `<div class="reporte-item">
+        <div>
+          <div class="reporte-fecha">📄 ${label}</div>
+        </div>
+        <a class="btn-csv" href="/api/admin/reporte/${fecha}/xlsx" download="reporte-${fecha}.xlsx">⬇ Descargar Excel</a>
+      </div>`;
+    }).join('');
+  }
+
+  async function generarReporte() {
+    const fechaInput = document.getElementById('fecha-reporte').value;
+    if (!fechaInput) { toast('Seleccioná una fecha'); return; }
+    const btn = event.target;
+    btn.disabled = true;
+    btn.textContent = 'Generando...';
+    await fetch('/api/admin/reporte/generar', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ fecha: fechaInput }),
+    });
+    const [a, m, d] = fechaInput.split('-');
+    toast(`Reporte del ${d}/${m}/${a} generado`);
+    await cargarReportes();
+    btn.disabled = false;
+    btn.textContent = 'Generar reporte';
+  }
 </script>
 </body>
 </html>

@@ -211,8 +211,9 @@
     }
     .pasajero-row:last-child { border-bottom: none; }
     .pasajero-row .nombre { color: var(--texto); }
-    .pasajero-row .hora-retiro { color: #4ade80; font-size: 12px; }
-    .pasajero-row .pendiente { color: var(--texto-muted); font-size: 12px; }
+    .pasajero-row .hora-retiro  { color: #4ade80; font-size: 12px; }
+    .pasajero-row .no-estaba    { color: #f87171; font-size: 12px; }
+    .pasajero-row .pendiente    { color: var(--texto-muted); font-size: 12px; }
 
     /* ── LOG ─────────────────────────────────────────────── */
     .panel-log {
@@ -429,9 +430,12 @@
       }
     }
 
-    const totalRetirados = retiros.length;
+    const recogidos     = retiros.filter(r => r.tipo === 'recogido').length;
+    const noEstaban     = retiros.filter(r => r.tipo === 'no_estaba').length;
+    const avisos        = retiros.filter(r => r.tipo === 'aviso').length;
+    const totalRetirados = recogidos;
     const total = pasajeros.length;
-    const pct = total ? Math.round((totalRetirados / total) * 100) : 0;
+    const pct = total ? Math.round((retiros.length / total) * 100) : 0;
 
     const badgeTextos = {
       pendiente: 'Pendiente', en_recorrido: 'En camino',
@@ -447,13 +451,13 @@
       <div class="tarjeta-header">
         <div>
           <div class="tarjeta-nombre">${esc(recorrido.nombre)}</div>
-          <div class="tarjeta-codigo">Código: ${esc(recorrido.codigo)}</div>
+          <div class="tarjeta-codigo">Placa: ${esc(recorrido.codigo)}</div>
         </div>
         <span class="badge badge-${estadoSesion}">${badgeTextos[estadoSesion]}</span>
       </div>
 
       <div class="progreso-info">
-        <span><strong>${totalRetirados}</strong> / ${total} personas retiradas</span>
+        <span><strong>${recogidos}</strong> recogidos · <strong>${noEstaban}</strong> no estaban · <strong>${avisos}</strong> avisaron · ${total} total</span>
         <span>${pct}%</span>
       </div>
       <div class="barra-outer">
@@ -471,10 +475,19 @@
       <div class="pasajeros-lista ${prev.abierto ? 'abierta' : ''}">
         ${pasajeros.map(p => {
           const r = retiros.find(x => x.pasajero_id === p.id);
+          let estado_html;
+          if (!r) {
+            estado_html = `<span class="pendiente">Pendiente</span>`;
+          } else if (r.tipo === 'no_estaba') {
+            estado_html = `<span class="no-estaba">✗ No estaba</span>`;
+          } else if (r.tipo === 'aviso') {
+            estado_html = `<span style="color:#a78bfa;font-size:12px;font-weight:700">📵 Avisó</span>`;
+          } else {
+            estado_html = `<span class="hora-retiro">✓ ${r.hora}</span>`;
+          }
           return `<div class="pasajero-row">
             <span class="nombre">${esc(p.nombre)}</span>
-            ${r ? `<span class="hora-retiro">✓ ${r.hora}</span>`
-                : `<span class="pendiente">Pendiente</span>`}
+            ${estado_html}
           </div>`;
         }).join('')}
       </div>`;

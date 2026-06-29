@@ -201,9 +201,20 @@
       transition: border-color 0.2s;
     }
 
-    .item-pasajero.retirado {
+    .item-pasajero.recogido {
       border-color: var(--verde);
       background: var(--verde-claro);
+    }
+
+    .item-pasajero.no-estaba {
+      border-color: var(--rojo);
+      background: var(--rojo-claro);
+    }
+
+    .item-pasajero.aviso {
+      border-color: #7c3aed;
+      background: #f5f3ff;
+      opacity: 0.85;
     }
 
     .pasajero-info { flex: 1; min-width: 0; }
@@ -223,27 +234,35 @@
       margin-top: 2px;
     }
 
-    .btn-retirar {
+    .acciones-pasajero {
+      display: flex;
+      gap: 6px;
       flex-shrink: 0;
-      padding: 10px 18px;
-      font-size: 15px;
+    }
+
+    .btn-marcar {
+      padding: 10px 14px;
+      font-size: 14px;
       font-weight: 700;
       border: none;
       border-radius: 8px;
-      background: var(--azul);
-      color: white;
       cursor: pointer;
       -webkit-tap-highlight-color: transparent;
       transition: opacity 0.15s, transform 0.1s;
     }
-    .btn-retirar:active { transform: scale(0.96); opacity: 0.85; }
-    .btn-retirar:disabled { opacity: 0.4; }
+    .btn-marcar:active { transform: scale(0.96); opacity: 0.85; }
+    .btn-marcar:disabled { opacity: 0.4; }
+    .btn-marcar.recogido  { background: var(--verde); color: white; }
+    .btn-marcar.no-estaba { background: var(--rojo-claro); color: var(--rojo); border: 2px solid var(--rojo); }
 
-    .check-icono {
-      font-size: 24px;
-      color: var(--verde);
+    .resultado-pasajero {
+      display: flex;
+      align-items: center;
+      gap: 6px;
       flex-shrink: 0;
     }
+    .resultado-pasajero .icono-resultado { font-size: 22px; }
+    .resultado-pasajero .hora-resultado  { font-size: 12px; color: var(--gris); }
 
     /* ── FOOTER FIJO ──────────────────────────────── */
     .footer-fijo {
@@ -270,6 +289,67 @@
     .mensaje-estado p { color: var(--gris); font-size: 14px; }
 
     .hidden { display: none !important; }
+
+    /* ── BARRA ACCIONES HEADER ────────────────────────── */
+    .header-acciones {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 10px;
+    }
+
+    .btn-header-sm {
+      background: none;
+      border: none;
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--azul);
+      cursor: pointer;
+      padding: 2px 0;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .btn-header-sm.rojo { color: var(--rojo); }
+
+    /* ── PANTALLA HISTORIAL ───────────────────────────── */
+    #screen-historial { display: none; flex-direction: column; min-height: 100dvh; }
+
+    .sesion-card {
+      background: white;
+      border-radius: 12px;
+      border: 2px solid var(--borde);
+      margin-bottom: 12px;
+      overflow: hidden;
+    }
+
+    .sesion-card-header {
+      padding: 14px 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      cursor: pointer;
+      user-select: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .sesion-fecha  { font-size: 16px; font-weight: 700; }
+    .sesion-stats  { font-size: 13px; color: var(--gris); margin-top: 3px; }
+    .sesion-badge  { font-size: 12px; font-weight: 700; padding: 3px 10px; border-radius: 20px; flex-shrink: 0; }
+
+    .sesion-detalle {
+      display: none;
+      border-top: 1px solid var(--borde);
+      padding: 10px 16px;
+    }
+    .sesion-detalle.abierto { display: block; }
+
+    .sesion-pasajero-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 7px 0;
+      font-size: 14px;
+      border-bottom: 1px solid var(--borde);
+    }
+    .sesion-pasajero-row:last-child { border-bottom: none; }
   </style>
 </head>
 <body>
@@ -278,8 +358,8 @@
 <div id="screen-codigo">
   <div class="icono">🚌</div>
   <h1>Sistema de Recorridos</h1>
-  <p>Ingresá el código de tu recorrido</p>
-  <input id="input-codigo" class="campo" type="text" placeholder="Ej: R01"
+  <p>Ingresá la placa de tu auto</p>
+  <input id="input-codigo" class="campo" type="text" placeholder="Ej: ABC123"
          maxlength="10" autocomplete="off" autocorrect="off" spellcheck="false">
   <div id="error-codigo"></div>
   <button id="btn-ingresar" class="btn btn-azul">Entrar</button>
@@ -294,6 +374,10 @@
     </div>
     <div id="progreso-texto">Cargando...</div>
     <div class="barra-outer"><div id="barra-progreso"></div></div>
+    <div class="header-acciones">
+      <button class="btn-header-sm" onclick="verHistorial()">📋 Ver historial</button>
+      <button class="btn-header-sm rojo" onclick="salir()">Salir ✕</button>
+    </div>
   </header>
 
   <div class="cuerpo">
@@ -313,6 +397,20 @@
   <!-- Botón de llegada (fijo abajo, visible solo en_recorrido) -->
   <div class="footer-fijo hidden" id="footer-llegada">
     <button id="btn-llegar" class="btn btn-verde">✅ Llegué a la Oficina</button>
+  </div>
+</div>
+
+<!-- ─── PANTALLA 3: HISTORIAL ──────────────────────────────── -->
+<div id="screen-historial">
+  <header class="top">
+    <div class="header-row">
+      <button class="btn-header-sm" onclick="volverDesdeHistorial()" style="font-size:16px">← Volver</button>
+      <span style="font-size:18px;font-weight:700">Historial</span>
+      <span></span>
+    </div>
+  </header>
+  <div class="cuerpo" id="contenido-historial">
+    <p style="text-align:center;color:var(--gris);padding:40px 0">Cargando...</p>
   </div>
 </div>
 
@@ -340,7 +438,7 @@
     try {
       const res = await fetch(`/api/recorrido/${codigo}`);
       if (!res.ok) {
-        mostrarError('Código no encontrado. Verificá con la oficina.');
+        mostrarError('Placa no encontrada. Verificá con la oficina.');
         return;
       }
       estado = await res.json();
@@ -384,11 +482,19 @@
     badge.className = `badge badge-${estadoSesion}`;
 
     // Progreso
-    const totalRetirados = retiros.length;
+    const recogidos  = retiros.filter(r => r.tipo === 'recogido').length;
+    const noEstaban  = retiros.filter(r => r.tipo === 'no_estaba').length;
+    const avisos     = retiros.filter(r => r.tipo === 'aviso').length;
+    const procesados = retiros.length;
     const total = pasajeros.length;
-    $('progreso-texto').textContent =
-      `${totalRetirados} de ${total} persona${total !== 1 ? 's' : ''} retirada${totalRetirados !== 1 ? 's' : ''}`;
-    $('barra-progreso').style.width = total ? `${(totalRetirados / total) * 100}%` : '0%';
+    const partes = [];
+    if (recogidos)  partes.push(`${recogidos} recogido${recogidos !== 1 ? 's' : ''}`);
+    if (noEstaban)  partes.push(`${noEstaban} no estaba${noEstaban !== 1 ? 'n' : ''}`);
+    if (avisos)     partes.push(`${avisos} avisó que no va`);
+    $('progreso-texto').textContent = partes.length
+      ? `${partes.join(', ')} de ${total}`
+      : `0 de ${total} persona${total !== 1 ? 's' : ''}`;
+    $('barra-progreso').style.width = total ? `${(procesados / total) * 100}%` : '0%';
 
     // Bloques visibles según estado
     const bloqueInicio = $('bloque-inicio');
@@ -425,34 +531,54 @@
     // Lista de pasajeros
     const lista = $('lista-pasajeros');
     lista.innerHTML = '';
-    const retiradosIds = new Set(retiros.map(r => r.pasajero_id));
+    const marcados = {};
+    retiros.forEach(r => { marcados[r.pasajero_id] = r; });
 
     pasajeros.forEach(p => {
-      const fueRetirado = retiradosIds.has(p.id);
-      const retiro = retiros.find(r => r.pasajero_id === p.id);
+      const marcado = marcados[p.id];
+      const esRecogido  = marcado?.tipo === 'recogido';
+      const esNoEstaba  = marcado?.tipo === 'no_estaba';
+      const esAviso     = marcado?.tipo === 'aviso';
 
       const li = document.createElement('li');
-      li.className = `item-pasajero${fueRetirado ? ' retirado' : ''}`;
+      li.className = `item-pasajero${esRecogido ? ' recogido' : esNoEstaba ? ' no-estaba' : esAviso ? ' aviso' : ''}`;
 
-      const puedeRetirar = estadoSesion === 'en_recorrido' && !fueRetirado;
+      const puedeMarcar = estadoSesion === 'en_recorrido' && !marcado;
+
+      let accionHTML;
+      if (esRecogido) {
+        accionHTML = `<div class="resultado-pasajero">
+          <span class="icono-resultado" style="color:var(--verde)">✓</span>
+          <span class="hora-resultado">${marcado.hora}</span>
+        </div>`;
+      } else if (esNoEstaba) {
+        accionHTML = `<div class="resultado-pasajero">
+          <span class="icono-resultado" style="color:var(--rojo)">✗</span>
+          <span class="hora-resultado">No estaba</span>
+        </div>`;
+      } else if (esAviso) {
+        accionHTML = `<div class="resultado-pasajero">
+          <span class="icono-resultado" style="color:#7c3aed">📵</span>
+          <span class="hora-resultado" style="color:#7c3aed">Avisó que no va</span>
+        </div>`;
+      } else {
+        accionHTML = `<div class="acciones-pasajero">
+          <button class="btn-marcar recogido" ${puedeMarcar ? '' : 'disabled'} data-id="${p.id}" data-tipo="recogido">✓ Recogido</button>
+          <button class="btn-marcar no-estaba" ${puedeMarcar ? '' : 'disabled'} data-id="${p.id}" data-tipo="no_estaba">✗ No estaba</button>
+        </div>`;
+      }
 
       li.innerHTML = `
         <div class="pasajero-info">
           <div class="pasajero-nombre">${esc(p.nombre)}</div>
-          ${fueRetirado ? `<div class="pasajero-hora">Retirado a las ${retiro.hora}</div>` : ''}
         </div>
-        ${fueRetirado
-          ? `<span class="check-icono">✓</span>`
-          : `<button class="btn-retirar" ${puedeRetirar ? '' : 'disabled'} data-id="${p.id}">
-               Retirar
-             </button>`
-        }`;
+        ${accionHTML}`;
       lista.appendChild(li);
     });
 
     if (estadoSesion === 'en_recorrido') {
-      lista.querySelectorAll('.btn-retirar:not([disabled])').forEach(btn => {
-        btn.addEventListener('click', () => retirarPasajero(btn.dataset.id));
+      lista.querySelectorAll('.btn-marcar:not([disabled])').forEach(btn => {
+        btn.addEventListener('click', () => marcarPasajero(btn.dataset.id, btn.dataset.tipo));
       });
     }
   }
@@ -471,22 +597,23 @@
 
   $('btn-llegar').addEventListener('click', () => {
     if (!estado?.sesion) return;
-    const retirados = estado.retiros.length;
+    const recogidos = estado.retiros.filter(r => r.tipo === 'recogido').length;
     const total = estado.pasajeros.length;
-    const msg = retirados < total
-      ? `¿Confirmás la llegada? Llevás ${retirados} de ${total} personas marcadas.`
-      : `¿Confirmás que llegaste a la oficina con ${retirados} persona${retirados !== 1 ? 's' : ''}?`;
+    const sinMarcar = total - estado.retiros.length;
+    let msg = `¿Confirmás que llegaste a la oficina?\n${recogidos} recogido${recogidos !== 1 ? 's' : ''}`;
+    if (sinMarcar > 0) msg += ` — ${sinMarcar} sin marcar`;
     if (!confirm(msg)) return;
     $('btn-llegar').disabled = true;
     socket.emit('llegar_oficina', { sesion_id: estado.sesion.id, codigo: estado.recorrido.codigo });
   });
 
-  function retirarPasajero(pasajero_id) {
+  function marcarPasajero(pasajero_id, tipo) {
     if (!estado?.sesion) return;
-    socket.emit('retirar_pasajero', {
+    socket.emit('marcar_pasajero', {
       sesion_id: estado.sesion.id,
       pasajero_id: parseInt(pasajero_id),
-      codigo: estado.recorrido.codigo
+      codigo: estado.recorrido.codigo,
+      tipo
     });
   }
 
@@ -507,6 +634,82 @@
 
   function esc(str) {
     return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  // ── SALIR ───────────────────────────────────────────
+  function salir() {
+    localStorage.removeItem('codigo');
+    estado = null;
+    $('screen-recorrido').style.display = 'none';
+    $('screen-historial').style.display = 'none';
+    $('screen-codigo').style.display    = 'flex';
+    $('input-codigo').value             = '';
+    $('error-codigo').textContent       = '';
+  }
+
+  // ── HISTORIAL ───────────────────────────────────────
+  async function verHistorial() {
+    if (!estado) return;
+    $('screen-recorrido').style.display = 'none';
+    $('screen-historial').style.display = 'flex';
+
+    const res  = await fetch(`/api/chofer/${estado.recorrido.codigo}/historial`);
+    const data = await res.json();
+    const contenido = $('contenido-historial');
+
+    if (!data.sesiones.length) {
+      contenido.innerHTML = '<p style="text-align:center;color:var(--gris);padding:40px 0">Sin historial disponible</p>';
+      return;
+    }
+
+    const badgeCfg = {
+      completado:   { txt: 'Completado',   bg: '#dcfce7', color: '#14532d' },
+      en_recorrido: { txt: 'En recorrido', bg: '#fef3c7', color: '#92400e' },
+      no_asistio:   { txt: 'No asistió',   bg: '#fee2e2', color: '#991b1b' },
+      pendiente:    { txt: 'Pendiente',    bg: '#f1f5f9', color: '#64748b' },
+    };
+    const tipoCfg = {
+      recogido:  { txt: '✓ Recogido',   color: 'var(--verde)' },
+      no_estaba: { txt: '✗ No estaba',  color: 'var(--rojo)'  },
+      pendiente: { txt: 'Pendiente',    color: 'var(--gris)'  },
+    };
+
+    contenido.innerHTML = data.sesiones.map((s, i) => {
+      const [a, m, d] = s.fecha.split('-');
+      const badge = badgeCfg[s.estado] || badgeCfg.pendiente;
+      const horas = s.hora_inicio
+        ? `Salida: ${s.hora_inicio}${s.hora_llegada ? ' · Llegada: ' + s.hora_llegada : ''}`
+        : '';
+      return `
+        <div class="sesion-card">
+          <div class="sesion-card-header" onclick="toggleSesion(${i})">
+            <div>
+              <div class="sesion-fecha">${d}/${m}/${a}</div>
+              <div class="sesion-stats">${s.recogidos} recogidos · ${s.no_estaban} no estaban · ${s.total} total</div>
+              ${horas ? `<div class="sesion-stats">${horas}</div>` : ''}
+            </div>
+            <span class="sesion-badge" style="background:${badge.bg};color:${badge.color}">${badge.txt}</span>
+          </div>
+          <div class="sesion-detalle" id="sesion-${i}">
+            ${s.detalle.map(p => {
+              const t = tipoCfg[p.tipo] || tipoCfg.pendiente;
+              return `<div class="sesion-pasajero-row">
+                <span>${esc(p.nombre)}</span>
+                <span style="color:${t.color};font-weight:700">${t.txt}${p.hora ? ' ' + p.hora : ''}</span>
+              </div>`;
+            }).join('')}
+          </div>
+        </div>`;
+    }).join('');
+  }
+
+  function toggleSesion(i) {
+    document.getElementById(`sesion-${i}`).classList.toggle('abierto');
+  }
+
+  function volverDesdeHistorial() {
+    $('screen-historial').style.display = 'none';
+    $('screen-recorrido').style.display = 'flex';
   }
 </script>
 </body>
