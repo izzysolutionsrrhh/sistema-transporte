@@ -160,15 +160,15 @@ app.get('/api/admin/reporte/:fecha/xlsx', requireAdmin, async (req, res) => {
   const wsResumen = XLSX.utils.aoa_to_sheet([
     [`Reporte de Recorridos — ${reporte.fecha}   (generado: ${reporte.generado})`],
     [],
-    ['Recorrido', 'Placa', 'Estado', 'Hora inicio', 'Hora llegada', 'Total pasajeros', 'Recogidos', 'No estaban'],
+    ['Recorrido', 'Placa', 'Estado', 'Hora inicio', 'Hora llegada', 'Total pasajeros', 'Recogidos', 'No estaban', 'Avisaron'],
     ...reporte.recorridos.map(r => [
       r.nombre, r.placa, estadoLabel[r.estado] || r.estado,
       r.hora_inicio || '-', r.hora_llegada || '-',
-      r.total_pasajeros, r.recogidos, r.no_estaban,
+      r.total_pasajeros, r.recogidos, r.no_estaban, r.avisaron,
     ]),
   ]);
-  wsResumen['!cols'] = [{ wch: 28 }, { wch: 12 }, { wch: 15 }, { wch: 13 }, { wch: 14 }, { wch: 16 }, { wch: 12 }, { wch: 12 }];
-  wsResumen['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 7 } }];
+  wsResumen['!cols'] = [{ wch: 28 }, { wch: 12 }, { wch: 15 }, { wch: 13 }, { wch: 14 }, { wch: 16 }, { wch: 12 }, { wch: 12 }, { wch: 12 }];
+  wsResumen['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 8 } }];
 
   const wsDetalle = XLSX.utils.aoa_to_sheet([
     ['Recorrido', 'Placa', 'Pasajero', 'Estado', 'Hora'],
