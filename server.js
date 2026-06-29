@@ -5,7 +5,10 @@ const { Server } = require('socket.io');
 const path = require('path');
 const XLSX = require('xlsx');
 const rateLimit = require('express-rate-limit');
+const multer = require('multer');
 const db = require('./db');
+
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
 
 const app = express();
 const httpServer = createServer(app);
@@ -115,6 +118,21 @@ app.delete('/api/admin/pasajero/:id', requireAdmin, async (req, res) => {
   await db.eliminarPasajero(req.params.id);
   io.emit('estado_completo', await db.getEstadoTodos());
   res.json({ ok: true });
+});
+
+app.post('/api/admin/importar', requireAdmin, upload.single('archivo'), async (req, res) => {
+  if (!req.file) return res.status(400).json({ error: 'No se recibió ningún archivo' });
+  try {
+    const wb = XLSX.read(req.file.buffer, { type: 'buffer' });
+    const ws = wb.Sheets[wb.SheetNames[0]];
+    const filas = XLSX.utils.sheet_to_json(ws, { defval: '' });
+    if (!filas.length) return res.status(400).json({ error: 'El archivo está vacío' });
+    const resultado = await db.importarRecorridos(filas);
+    io.emit('estado_completo', await db.getEstadoTodos());
+    res.json(resultado);
+  } catch (err) {
+    res.status(400).json({ error: 'Error leyendo el archivo: ' + err.message });
+  }
 });
 
 app.post('/api/admin/reset', requireAdmin, async (req, res) => {

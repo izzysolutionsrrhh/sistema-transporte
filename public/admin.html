@@ -366,6 +366,19 @@
 <div class="container">
   <h2>Gestión de Recorridos</h2>
 
+  <!-- Importar desde Excel -->
+  <div class="card">
+    <h3>📥 Importar desde Excel</h3>
+    <p style="font-size:13px;color:var(--muted);margin-bottom:12px">
+      Subí un archivo <strong>.xlsx</strong> con columnas: <code>recorrido</code>, <code>placa</code>, <code>pasajero1</code>, <code>pasajero2</code>…
+    </p>
+    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+      <input id="input-importar" type="file" accept=".xlsx" style="font-size:14px;flex:1;min-width:0">
+      <button class="btn-primario" onclick="importarExcel()" style="white-space:nowrap">📥 Importar</button>
+    </div>
+    <div id="resultado-importar" style="margin-top:12px;font-size:14px;display:none"></div>
+  </div>
+
   <!-- Crear recorrido -->
   <div class="card">
     <h3>➕ Nuevo Recorrido</h3>
@@ -715,6 +728,43 @@
         <div class="pasajeros-panel abierto">${filas}</div>
       </div>`;
     }).join('');
+  }
+
+  async function importarExcel() {
+    const input = document.getElementById('input-importar');
+    const resultado = document.getElementById('resultado-importar');
+    if (!input.files[0]) { toast('Seleccioná un archivo primero'); return; }
+
+    const formData = new FormData();
+    formData.append('archivo', input.files[0]);
+
+    resultado.style.display = 'none';
+    try {
+      const res = await fetch('/api/admin/importar', {
+        method: 'POST',
+        headers: { 'x-admin-token': adminToken },
+        body: formData,
+      });
+      const data = await res.json();
+      if (!res.ok) { toast(data.error || 'Error al importar'); return; }
+
+      let html = `<div style="color:#14532d;background:#dcfce7;padding:10px;border-radius:8px;margin-bottom:8px">
+        ✅ <strong>${data.recorridosCreados}</strong> recorrido${data.recorridosCreados !== 1 ? 's' : ''} creado${data.recorridosCreados !== 1 ? 's' : ''} ·
+        <strong>${data.pasajerosCreados}</strong> pasajero${data.pasajerosCreados !== 1 ? 's' : ''} agregado${data.pasajerosCreados !== 1 ? 's' : ''}
+      </div>`;
+      if (data.errores?.length) {
+        html += `<div style="color:#991b1b;background:#fee2e2;padding:10px;border-radius:8px;font-size:13px">
+          ${data.errores.map(e => `⚠️ ${e}`).join('<br>')}
+        </div>`;
+      }
+      resultado.innerHTML = html;
+      resultado.style.display = 'block';
+      input.value = '';
+      cargarRecorridos();
+      cargarEstadoDia();
+    } catch {
+      toast('Error de conexión al importar');
+    }
   }
 
   async function marcarAviso(recorrido_id, pasajero_id) {
