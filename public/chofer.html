@@ -254,6 +254,7 @@
     .btn-marcar:disabled { opacity: 0.4; }
     .btn-marcar.recogido  { background: var(--verde); color: white; }
     .btn-marcar.no-estaba { background: var(--rojo-claro); color: var(--rojo); border: 2px solid var(--rojo); }
+    .btn-marcar.aviso     { background: #f5f3ff; color: #7c3aed; border: 2px solid #7c3aed; }
 
     .resultado-pasajero {
       display: flex;
@@ -565,6 +566,7 @@
         accionHTML = `<div class="acciones-pasajero">
           <button class="btn-marcar recogido" ${puedeMarcar ? '' : 'disabled'} data-id="${p.id}" data-tipo="recogido">✓ Recogido</button>
           <button class="btn-marcar no-estaba" ${puedeMarcar ? '' : 'disabled'} data-id="${p.id}" data-tipo="no_estaba">✗ No estaba</button>
+          <button class="btn-marcar aviso" ${puedeMarcar ? '' : 'disabled'} data-id="${p.id}" data-tipo="aviso">📵 Avisó</button>
         </div>`;
       }
 
