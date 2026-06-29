@@ -1,266 +1,353 @@
-const fs = require('fs');
-const path = require('path');
+const { Pool } = require('pg');
 
-const DB_PATH      = path.join(__dirname, 'data.json');
-const REPORTES_DIR = path.join(__dirname, 'reportes');
-
-function ensureReportesDir() {
-  if (!fs.existsSync(REPORTES_DIR)) fs.mkdirSync(REPORTES_DIR, { recursive: true });
-}
-
-const EMPTY = {
-  recorridos: [], pasajeros: [], sesiones: [], retiros: [],
-  _seq: { recorridos: 0, pasajeros: 0, sesiones: 0, retiros: 0 }
-};
-
-// Inicializar data.json si no existe
-if (!fs.existsSync(DB_PATH)) fs.writeFileSync(DB_PATH, JSON.stringify(EMPTY));
-
-function read() {
-  try { return JSON.parse(fs.readFileSync(DB_PATH, 'utf8')); }
-  catch { return JSON.parse(JSON.stringify(EMPTY)); }
-}
-
-function write(data) {
-  fs.writeFileSync(DB_PATH, JSON.stringify(data));
-}
-
-function insert(table, fields) {
-  const db = read();
-  db._seq[table] = (db._seq[table] || 0) + 1;
-  const record = { id: db._seq[table], ...fields };
-  db[table].push(record);
-  write(db);
-  return record;
-}
-
-function updateWhere(table, predFn, changes) {
-  const db = read();
-  db[table].forEach(r => { if (predFn(r)) Object.assign(r, changes); });
-  write(db);
-}
-
-function removeWhere(table, predFn) {
-  const db = read();
-  db[table] = db[table].filter(r => !predFn(r));
-  write(db);
-}
-
-function q(table, predFn) { return read()[table].filter(predFn); }
-function q1(table, predFn) { return read()[table].find(predFn) || null; }
-
-// ─── Helpers ─────────────────────────────────────────────────────────────────
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: process.env.DATABASE_URL && !process.env.DATABASE_URL.includes('localhost')
+    ? { rejectUnauthorized: false }
+    : false,
+});
 
 function fechaHoy() {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 }
 
-function sesionHoy(recorrido_id) {
-  return q1('sesiones', s => s.recorrido_id === recorrido_id && s.fecha === fechaHoy());
+async function sesionHoy(recorrido_id) {
+  const { rows } = await pool.query(
+    'SELECT * FROM sesiones WHERE recorrido_id = $1 AND fecha = $2',
+    [recorrido_id, fechaHoy()]
+  );
+  return rows[0] || null;
 }
 
-function getOCrearSesion(recorrido_id) {
-  let sesion = sesionHoy(recorrido_id);
-  if (!sesion) sesion = insert('sesiones', { recorrido_id, fecha: fechaHoy(), estado: 'pendiente', hora_inicio: null, hora_llegada: null });
-  return sesion;
+async function getOCrearSesion(recorrido_id) {
+  const hoy = fechaHoy();
+  await pool.query(
+    `INSERT INTO sesiones (recorrido_id, fecha, estado)
+     VALUES ($1, $2, 'pendiente')
+     ON CONFLICT (recorrido_id, fecha) DO NOTHING`,
+    [recorrido_id, hoy]
+  );
+  const { rows } = await pool.query(
+    'SELECT * FROM sesiones WHERE recorrido_id = $1 AND fecha = $2',
+    [recorrido_id, hoy]
+  );
+  return rows[0];
 }
 
-function buildEstado(recorrido) {
-  const pasajeros = q('pasajeros', p => p.recorrido_id === recorrido.id && p.activo);
-  const sesion    = sesionHoy(recorrido.id);
-  const retiros   = sesion
-    ? q('retiros', r => r.sesion_id === sesion.id)
-        .map(r => ({ ...r, tipo: r.tipo || 'recogido', pasajero_nombre: q1('pasajeros', p => p.id === r.pasajero_id)?.nombre || '' }))
-        .sort((a, b) => a.hora.localeCompare(b.hora))
-    : [];
+async function buildEstado(recorrido) {
+  const { rows: pasajeros } = await pool.query(
+    'SELECT * FROM pasajeros WHERE recorrido_id = $1 AND activo = TRUE ORDER BY orden',
+    [recorrido.id]
+  );
+  const sesion = await sesionHoy(recorrido.id);
+  let retiros = [];
+  if (sesion) {
+    const { rows } = await pool.query(
+      `SELECT r.*, p.nombre AS pasajero_nombre
+       FROM retiros r JOIN pasajeros p ON p.id = r.pasajero_id
+       WHERE r.sesion_id = $1 ORDER BY r.hora NULLS LAST`,
+      [sesion.id]
+    );
+    retiros = rows.map(r => ({ ...r, tipo: r.tipo || 'recogido' }));
+  }
   return { recorrido, pasajeros, sesion: sesion || null, retiros };
+}
+
+// ─── Inicialización de tablas ─────────────────────────────────────────────────
+
+async function initDB() {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS recorridos (
+      id     SERIAL PRIMARY KEY,
+      nombre TEXT NOT NULL,
+      codigo TEXT NOT NULL,
+      activo BOOLEAN DEFAULT TRUE
+    );
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_recorridos_codigo
+      ON recorridos(codigo) WHERE activo = TRUE;
+
+    CREATE TABLE IF NOT EXISTS pasajeros (
+      id           SERIAL PRIMARY KEY,
+      nombre       TEXT NOT NULL,
+      recorrido_id INTEGER REFERENCES recorridos(id),
+      orden        INTEGER DEFAULT 0,
+      activo       BOOLEAN DEFAULT TRUE
+    );
+
+    CREATE TABLE IF NOT EXISTS sesiones (
+      id           SERIAL PRIMARY KEY,
+      recorrido_id INTEGER REFERENCES recorridos(id),
+      fecha        TEXT NOT NULL,
+      estado       TEXT DEFAULT 'pendiente',
+      hora_inicio  TEXT,
+      hora_llegada TEXT,
+      UNIQUE(recorrido_id, fecha)
+    );
+
+    CREATE TABLE IF NOT EXISTS retiros (
+      id          SERIAL PRIMARY KEY,
+      sesion_id   INTEGER REFERENCES sesiones(id),
+      pasajero_id INTEGER REFERENCES pasajeros(id),
+      hora        TEXT,
+      tipo        TEXT DEFAULT 'recogido',
+      UNIQUE(sesion_id, pasajero_id)
+    );
+
+    CREATE TABLE IF NOT EXISTS reportes (
+      fecha    TEXT PRIMARY KEY,
+      generado TEXT NOT NULL,
+      datos    JSONB NOT NULL
+    );
+  `);
+  console.log('  Base de datos inicializada correctamente');
 }
 
 // ─── API pública ──────────────────────────────────────────────────────────────
 
 module.exports = {
+  initDB,
 
-  crearRecorrido(nombre, codigo) {
-    if (q1('recorridos', r => r.codigo === codigo && r.activo)) throw new Error('Código duplicado');
-    return insert('recorridos', { nombre, codigo, activo: true }).id;
+  async crearRecorrido(nombre, codigo) {
+    try {
+      const { rows } = await pool.query(
+        'INSERT INTO recorridos (nombre, codigo) VALUES ($1, $2) RETURNING id',
+        [nombre, codigo]
+      );
+      return rows[0].id;
+    } catch (err) {
+      if (err.code === '23505') throw new Error('Código duplicado');
+      throw err;
+    }
   },
 
-  eliminarRecorrido(id) {
-    id = parseInt(id);
-    updateWhere('recorridos', r => r.id === id, { activo: false });
+  async eliminarRecorrido(id) {
+    await pool.query('UPDATE recorridos SET activo = FALSE WHERE id = $1', [parseInt(id)]);
   },
 
-  getAllRecorridosConPasajeros() {
-    return q('recorridos', r => r.activo)
-      .sort((a, b) => a.nombre.localeCompare(b.nombre))
-      .map(r => ({ ...r, pasajeros: q('pasajeros', p => p.recorrido_id === r.id && p.activo) }));
+  async getAllRecorridosConPasajeros() {
+    const { rows: recorridos } = await pool.query(
+      'SELECT * FROM recorridos WHERE activo = TRUE ORDER BY nombre'
+    );
+    return Promise.all(recorridos.map(async r => {
+      const { rows: pasajeros } = await pool.query(
+        'SELECT * FROM pasajeros WHERE recorrido_id = $1 AND activo = TRUE ORDER BY orden',
+        [r.id]
+      );
+      return { ...r, pasajeros };
+    }));
   },
 
-  crearPasajero(nombre, recorrido_id) {
+  async crearPasajero(nombre, recorrido_id) {
     recorrido_id = parseInt(recorrido_id);
-    const maxOrden = q('pasajeros', p => p.recorrido_id === recorrido_id)
-      .reduce((m, p) => Math.max(m, p.orden || 0), 0);
-    return insert('pasajeros', { nombre, recorrido_id, orden: maxOrden + 1, activo: true }).id;
+    const { rows } = await pool.query(
+      'SELECT COALESCE(MAX(orden), 0) + 1 AS sig FROM pasajeros WHERE recorrido_id = $1',
+      [recorrido_id]
+    );
+    const { rows: ins } = await pool.query(
+      'INSERT INTO pasajeros (nombre, recorrido_id, orden) VALUES ($1, $2, $3) RETURNING id',
+      [nombre, recorrido_id, rows[0].sig]
+    );
+    return ins[0].id;
   },
 
-  eliminarPasajero(id) {
-    id = parseInt(id);
-    updateWhere('pasajeros', p => p.id === id, { activo: false });
+  async eliminarPasajero(id) {
+    await pool.query('UPDATE pasajeros SET activo = FALSE WHERE id = $1', [parseInt(id)]);
   },
 
-  iniciarRecorrido(codigo, hora) {
-    const recorrido = q1('recorridos', r => r.codigo === codigo && r.activo);
+  async iniciarRecorrido(codigo, hora) {
+    const { rows } = await pool.query(
+      'SELECT * FROM recorridos WHERE codigo = $1 AND activo = TRUE', [codigo]
+    );
+    const recorrido = rows[0];
     if (!recorrido) return null;
-    const sesion = getOCrearSesion(recorrido.id);
+    const sesion = await getOCrearSesion(recorrido.id);
     if (sesion.estado === 'pendiente') {
-      updateWhere('sesiones', s => s.id === sesion.id, { estado: 'en_recorrido', hora_inicio: hora });
+      await pool.query(
+        "UPDATE sesiones SET estado = 'en_recorrido', hora_inicio = $1 WHERE id = $2",
+        [hora, sesion.id]
+      );
     }
     return buildEstado(recorrido);
   },
 
-  marcarAviso(recorrido_id, pasajero_id, hora) {
-    recorrido_id = parseInt(recorrido_id);
-    pasajero_id  = parseInt(pasajero_id);
-    const sesion = getOCrearSesion(recorrido_id);
-    const ya = q1('retiros', r => r.sesion_id === sesion.id && r.pasajero_id === pasajero_id);
-    if (!ya) insert('retiros', { sesion_id: sesion.id, pasajero_id, hora, tipo: 'aviso' });
-    const recorrido = q1('recorridos', r => r.id === recorrido_id);
-    return buildEstado(recorrido);
-  },
-
-  desmarcarAviso(recorrido_id, pasajero_id) {
-    recorrido_id = parseInt(recorrido_id);
-    pasajero_id  = parseInt(pasajero_id);
-    const sesion = sesionHoy(recorrido_id);
-    if (!sesion) return null;
-    removeWhere('retiros', r => r.sesion_id === sesion.id && r.pasajero_id === pasajero_id && r.tipo === 'aviso');
-    const recorrido = q1('recorridos', r => r.id === recorrido_id);
-    return buildEstado(recorrido);
-  },
-
-  marcarPasajero(sesion_id, pasajero_id, hora, tipo) {
+  async marcarPasajero(sesion_id, pasajero_id, hora, tipo) {
     sesion_id   = parseInt(sesion_id);
     pasajero_id = parseInt(pasajero_id);
-    const ya = q1('retiros', r => r.sesion_id === sesion_id && r.pasajero_id === pasajero_id);
-    if (!ya) insert('retiros', { sesion_id, pasajero_id, hora, tipo });
-    const sesion = q1('sesiones', s => s.id === sesion_id);
-    const recorrido = q1('recorridos', r => r.id === sesion.recorrido_id);
-    return buildEstado(recorrido);
+    await pool.query(
+      `INSERT INTO retiros (sesion_id, pasajero_id, hora, tipo)
+       VALUES ($1, $2, $3, $4) ON CONFLICT (sesion_id, pasajero_id) DO NOTHING`,
+      [sesion_id, pasajero_id, hora, tipo]
+    );
+    const { rows: s } = await pool.query('SELECT * FROM sesiones WHERE id = $1', [sesion_id]);
+    const { rows: r } = await pool.query('SELECT * FROM recorridos WHERE id = $1', [s[0].recorrido_id]);
+    return buildEstado(r[0]);
   },
 
-  llegarOficina(sesion_id, hora) {
+  async llegarOficina(sesion_id, hora) {
     sesion_id = parseInt(sesion_id);
-    updateWhere('sesiones', s => s.id === sesion_id, { estado: 'completado', hora_llegada: hora });
-    const sesion = q1('sesiones', s => s.id === sesion_id);
-    const recorrido = q1('recorridos', r => r.id === sesion.recorrido_id);
-    return buildEstado(recorrido);
+    await pool.query(
+      "UPDATE sesiones SET estado = 'completado', hora_llegada = $1 WHERE id = $2",
+      [hora, sesion_id]
+    );
+    const { rows: s } = await pool.query('SELECT * FROM sesiones WHERE id = $1', [sesion_id]);
+    const { rows: r } = await pool.query('SELECT * FROM recorridos WHERE id = $1', [s[0].recorrido_id]);
+    return buildEstado(r[0]);
   },
 
-  noAsistir(codigo) {
-    const recorrido = q1('recorridos', r => r.codigo === codigo && r.activo);
+  async noAsistir(codigo) {
+    const { rows } = await pool.query(
+      'SELECT * FROM recorridos WHERE codigo = $1 AND activo = TRUE', [codigo]
+    );
+    const recorrido = rows[0];
     if (!recorrido) return null;
-    const sesion = getOCrearSesion(recorrido.id);
-    updateWhere('sesiones', s => s.id === sesion.id, { estado: 'no_asistio' });
+    const sesion = await getOCrearSesion(recorrido.id);
+    await pool.query("UPDATE sesiones SET estado = 'no_asistio' WHERE id = $1", [sesion.id]);
     return buildEstado(recorrido);
   },
 
-  resetSesionHoy(recorrido_id) {
+  async resetSesionHoy(recorrido_id) {
     recorrido_id = parseInt(recorrido_id);
-    const sesion = sesionHoy(recorrido_id);
+    const sesion = await sesionHoy(recorrido_id);
     if (!sesion) return;
-    removeWhere('retiros', r => r.sesion_id === sesion.id);
-    removeWhere('sesiones', s => s.id === sesion.id);
+    await pool.query('DELETE FROM retiros  WHERE sesion_id = $1', [sesion.id]);
+    await pool.query('DELETE FROM sesiones WHERE id = $1',        [sesion.id]);
   },
 
-  getEstadoRecorrido(codigo) {
-    const recorrido = q1('recorridos', r => r.codigo === codigo && r.activo);
-    if (!recorrido) return null;
-    return buildEstado(recorrido);
+  async getEstadoRecorrido(codigo) {
+    const { rows } = await pool.query(
+      'SELECT * FROM recorridos WHERE codigo = $1 AND activo = TRUE', [codigo]
+    );
+    if (!rows[0]) return null;
+    return buildEstado(rows[0]);
   },
 
-  getEstadoTodos() {
-    return q('recorridos', r => r.activo)
-      .sort((a, b) => a.nombre.localeCompare(b.nombre))
-      .map(buildEstado);
+  async getEstadoTodos() {
+    const { rows } = await pool.query(
+      'SELECT * FROM recorridos WHERE activo = TRUE ORDER BY nombre'
+    );
+    return Promise.all(rows.map(buildEstado));
   },
 
-  generarReporte(fecha) {
+  async marcarAviso(recorrido_id, pasajero_id, hora) {
+    recorrido_id = parseInt(recorrido_id);
+    pasajero_id  = parseInt(pasajero_id);
+    const sesion = await getOCrearSesion(recorrido_id);
+    await pool.query(
+      `INSERT INTO retiros (sesion_id, pasajero_id, hora, tipo)
+       VALUES ($1, $2, $3, 'aviso') ON CONFLICT (sesion_id, pasajero_id) DO NOTHING`,
+      [sesion.id, pasajero_id, hora]
+    );
+    const { rows } = await pool.query('SELECT * FROM recorridos WHERE id = $1', [recorrido_id]);
+    return buildEstado(rows[0]);
+  },
+
+  async desmarcarAviso(recorrido_id, pasajero_id) {
+    recorrido_id = parseInt(recorrido_id);
+    pasajero_id  = parseInt(pasajero_id);
+    const sesion = await sesionHoy(recorrido_id);
+    if (!sesion) return null;
+    await pool.query(
+      "DELETE FROM retiros WHERE sesion_id = $1 AND pasajero_id = $2 AND tipo = 'aviso'",
+      [sesion.id, pasajero_id]
+    );
+    const { rows } = await pool.query('SELECT * FROM recorridos WHERE id = $1', [recorrido_id]);
+    return buildEstado(rows[0]);
+  },
+
+  async getHistorialChofer(codigo) {
+    const { rows: rec } = await pool.query(
+      'SELECT * FROM recorridos WHERE codigo = $1 AND activo = TRUE', [codigo]
+    );
+    if (!rec[0]) return null;
+    const recorrido = rec[0];
+    const { rows: pasajeros } = await pool.query(
+      'SELECT * FROM pasajeros WHERE recorrido_id = $1 AND activo = TRUE ORDER BY orden',
+      [recorrido.id]
+    );
+    const { rows: sesiones } = await pool.query(
+      'SELECT * FROM sesiones WHERE recorrido_id = $1 ORDER BY fecha DESC',
+      [recorrido.id]
+    );
+    const sesionesDetalle = await Promise.all(sesiones.map(async sesion => {
+      const { rows: retiros } = await pool.query(
+        'SELECT * FROM retiros WHERE sesion_id = $1', [sesion.id]
+      );
+      const ret = retiros.map(r => ({ ...r, tipo: r.tipo || 'recogido' }));
+      return {
+        ...sesion,
+        total:      pasajeros.length,
+        recogidos:  ret.filter(r => r.tipo === 'recogido').length,
+        no_estaban: ret.filter(r => r.tipo === 'no_estaba').length,
+        detalle: pasajeros.map(p => {
+          const r = ret.find(x => x.pasajero_id === p.id);
+          return { nombre: p.nombre, tipo: r?.tipo || 'pendiente', hora: r?.hora || null };
+        }),
+      };
+    }));
+    return { recorrido, sesiones: sesionesDetalle };
+  },
+
+  async generarReporte(fecha) {
     fecha = fecha || fechaHoy();
-    const recorridos = q('recorridos', r => r.activo).sort((a, b) => a.nombre.localeCompare(b.nombre));
+    const { rows: recorridos } = await pool.query(
+      'SELECT * FROM recorridos WHERE activo = TRUE ORDER BY nombre'
+    );
+    const recorridosData = await Promise.all(recorridos.map(async rec => {
+      const { rows: pasajeros } = await pool.query(
+        'SELECT * FROM pasajeros WHERE recorrido_id = $1 AND activo = TRUE ORDER BY orden',
+        [rec.id]
+      );
+      const { rows: ses } = await pool.query(
+        'SELECT * FROM sesiones WHERE recorrido_id = $1 AND fecha = $2', [rec.id, fecha]
+      );
+      const sesion = ses[0] || null;
+      let retiros = [];
+      if (sesion) {
+        const { rows } = await pool.query('SELECT * FROM retiros WHERE sesion_id = $1', [sesion.id]);
+        retiros = rows.map(r => ({ ...r, tipo: r.tipo || 'recogido' }));
+      }
+      return {
+        nombre:          rec.nombre,
+        placa:           rec.codigo,
+        estado:          sesion?.estado || 'pendiente',
+        hora_inicio:     sesion?.hora_inicio  || null,
+        hora_llegada:    sesion?.hora_llegada || null,
+        total_pasajeros: pasajeros.length,
+        recogidos:       retiros.filter(r => r.tipo === 'recogido').length,
+        no_estaban:      retiros.filter(r => r.tipo === 'no_estaba').length,
+        detalle: pasajeros.map(p => {
+          const r = retiros.find(x => x.pasajero_id === p.id);
+          return { nombre: p.nombre, tipo: r?.tipo || 'pendiente', hora: r?.hora || null };
+        }),
+      };
+    }));
     return {
       fecha,
-      generado: new Date().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }),
-      recorridos: recorridos.map(rec => {
-        const pasajeros = q('pasajeros', p => p.recorrido_id === rec.id && p.activo);
-        const sesion    = q1('sesiones', s => s.recorrido_id === rec.id && s.fecha === fecha);
-        const retiros   = sesion
-          ? q('retiros', r => r.sesion_id === sesion.id)
-              .map(r => ({ ...r, tipo: r.tipo || 'recogido' }))
-          : [];
-        const recogidos  = retiros.filter(r => r.tipo === 'recogido').length;
-        const noEstaban  = retiros.filter(r => r.tipo === 'no_estaba').length;
-        return {
-          nombre:          rec.nombre,
-          placa:           rec.codigo,
-          estado:          sesion?.estado || 'pendiente',
-          hora_inicio:     sesion?.hora_inicio  || null,
-          hora_llegada:    sesion?.hora_llegada || null,
-          total_pasajeros: pasajeros.length,
-          recogidos,
-          no_estaban:      noEstaban,
-          detalle: pasajeros.map(p => {
-            const r = retiros.find(x => x.pasajero_id === p.id);
-            return { nombre: p.nombre, tipo: r?.tipo || 'pendiente', hora: r?.hora || null };
-          }),
-        };
+      generado: new Date().toLocaleTimeString('es-AR', {
+        hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false,
       }),
+      recorridos: recorridosData,
     };
   },
 
-  guardarReporte(fecha) {
-    ensureReportesDir();
-    const reporte = this.generarReporte(fecha);
-    fs.writeFileSync(path.join(REPORTES_DIR, `${reporte.fecha}.json`), JSON.stringify(reporte, null, 2));
+  async guardarReporte(fecha) {
+    const reporte = await this.generarReporte(fecha);
+    await pool.query(
+      `INSERT INTO reportes (fecha, generado, datos) VALUES ($1, $2, $3)
+       ON CONFLICT (fecha) DO UPDATE SET generado = EXCLUDED.generado, datos = EXCLUDED.datos`,
+      [reporte.fecha, reporte.generado, JSON.stringify(reporte)]
+    );
     return reporte;
   },
 
-  listarReportes() {
-    ensureReportesDir();
-    return fs.readdirSync(REPORTES_DIR)
-      .filter(f => f.endsWith('.json'))
-      .sort().reverse()
-      .map(f => f.replace('.json', ''));
+  async listarReportes() {
+    const { rows } = await pool.query('SELECT fecha FROM reportes ORDER BY fecha DESC');
+    return rows.map(r => r.fecha);
   },
 
-  getHistorialChofer(codigo) {
-    const recorrido = q1('recorridos', r => r.codigo === codigo && r.activo);
-    if (!recorrido) return null;
-    const pasajeros = q('pasajeros', p => p.recorrido_id === recorrido.id && p.activo);
-    const sesiones  = q('sesiones',  s => s.recorrido_id === recorrido.id)
-      .sort((a, b) => b.fecha.localeCompare(a.fecha));
-    return {
-      recorrido,
-      sesiones: sesiones.map(sesion => {
-        const retiros = q('retiros', r => r.sesion_id === sesion.id)
-          .map(r => ({ ...r, tipo: r.tipo || 'recogido' }));
-        return {
-          ...sesion,
-          total:      pasajeros.length,
-          recogidos:  retiros.filter(r => r.tipo === 'recogido').length,
-          no_estaban: retiros.filter(r => r.tipo === 'no_estaba').length,
-          detalle: pasajeros.map(p => {
-            const r = retiros.find(x => x.pasajero_id === p.id);
-            return { nombre: p.nombre, tipo: r?.tipo || 'pendiente', hora: r?.hora || null };
-          }),
-        };
-      }),
-    };
-  },
-
-  getReporte(fecha) {
-    const fp = path.join(REPORTES_DIR, `${fecha}.json`);
-    if (!fs.existsSync(fp)) return null;
-    return JSON.parse(fs.readFileSync(fp, 'utf8'));
+  async getReporte(fecha) {
+    const { rows } = await pool.query('SELECT datos FROM reportes WHERE fecha = $1', [fecha]);
+    return rows[0]?.datos || null;
   },
 };
