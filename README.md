@@ -8,9 +8,9 @@ Sistema web para el seguimiento en tiempo real de recorridos de transporte empre
 
 | Pantalla | URL | Para quién |
 |---|---|---|
-| Dashboard | `/dashboard.html` | Oficina — vista en tiempo real de todos los recorridos |
-| App Chofer | `/chofer.html` | Chofer — marcado de pasajeros desde el celular |
-| Panel Admin | `/admin.html` | Administrador — gestión de recorridos, pasajeros y reportes |
+| Dashboard | [sistema-transporte-ig4e.onrender.com/dashboard.html](https://sistema-transporte-ig4e.onrender.com/dashboard.html) | Oficina — vista en tiempo real de todos los recorridos |
+| App Chofer | [sistema-transporte-ig4e.onrender.com/chofer.html](https://sistema-transporte-ig4e.onrender.com/chofer.html) | Chofer — marcado de pasajeros desde el celular |
+| Panel Admin | [sistema-transporte-ig4e.onrender.com/admin.html](https://sistema-transporte-ig4e.onrender.com/admin.html) | Administrador — gestión de recorridos, pasajeros y reportes |
 
 ---
 
