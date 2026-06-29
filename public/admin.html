@@ -26,6 +26,77 @@
       min-height: 100vh;
     }
 
+    /* ── LOGIN ──────────────────────────────────────── */
+    #screen-login {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #0f172a;
+    }
+    .login-card {
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 16px;
+      padding: 40px 36px;
+      width: 100%;
+      max-width: 380px;
+    }
+    .login-card h2 {
+      color: #f1f5f9;
+      font-size: 22px;
+      font-weight: 700;
+      margin-bottom: 6px;
+      text-align: center;
+    }
+    .login-card p {
+      color: #94a3b8;
+      font-size: 14px;
+      text-align: center;
+      margin-bottom: 28px;
+    }
+    .login-field {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      margin-bottom: 16px;
+    }
+    .login-field label { color: #94a3b8; font-size: 13px; font-weight: 600; }
+    .login-field input {
+      padding: 12px 14px;
+      background: #0f172a;
+      border: 1px solid #334155;
+      border-radius: 8px;
+      color: #f1f5f9;
+      font-size: 15px;
+      outline: none;
+    }
+    .login-field input:focus { border-color: #1d4ed8; }
+    .btn-login {
+      width: 100%;
+      padding: 14px;
+      background: #1d4ed8;
+      color: white;
+      font-size: 16px;
+      font-weight: 700;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      margin-top: 8px;
+    }
+    .btn-login:hover { opacity: 0.9; }
+    .btn-login:disabled { opacity: 0.5; cursor: not-allowed; }
+    .login-error {
+      color: #f87171;
+      font-size: 13px;
+      text-align: center;
+      min-height: 18px;
+      margin-top: 10px;
+    }
+
+    /* ── PANEL ADMIN ────────────────────────────────── */
+    #screen-admin { display: none; }
+
     header {
       background: #1e293b;
       color: white;
@@ -42,6 +113,18 @@
       margin-left: 20px;
     }
     header nav a:hover { color: white; }
+    .btn-logout {
+      background: transparent;
+      color: #f87171;
+      border: 1px solid #f87171;
+      padding: 6px 14px;
+      font-size: 13px;
+      font-weight: 700;
+      border-radius: 6px;
+      cursor: pointer;
+      margin-left: 16px;
+    }
+    .btn-logout:hover { background: #f87171; color: white; }
 
     .container { max-width: 960px; margin: 0 auto; padding: 24px 20px; }
 
@@ -248,11 +331,35 @@
 </head>
 <body>
 
+<!-- ── LOGIN ─────────────────────────────────────────────── -->
+<div id="screen-login">
+  <div class="login-card">
+    <h2>⚙️ Administración</h2>
+    <p>Ingresá tus credenciales para continuar</p>
+    <div class="login-field">
+      <label>Usuario</label>
+      <input id="login-usuario" type="text" autocomplete="username"
+             placeholder="Usuario" onkeydown="if(event.key==='Enter') doLogin()">
+    </div>
+    <div class="login-field">
+      <label>Contraseña</label>
+      <input id="login-clave" type="password" autocomplete="current-password"
+             placeholder="Contraseña" onkeydown="if(event.key==='Enter') doLogin()">
+    </div>
+    <button class="btn-login" id="btn-login" onclick="doLogin()">Ingresar</button>
+    <div class="login-error" id="login-error"></div>
+  </div>
+</div>
+
+<!-- ── PANEL ADMIN ──────────────────────────────────────── -->
+<div id="screen-admin">
+
 <header>
   <h1>⚙️ Panel de Administración</h1>
   <nav>
     <a href="/dashboard.html">📊 Dashboard</a>
     <a href="/chofer.html">🚌 App Chofer</a>
+    <button class="btn-logout" onclick="doLogout()">Cerrar sesión</button>
   </nav>
 </header>
 
@@ -330,11 +437,79 @@
 
 <div id="toast"></div>
 
+</div> <!-- /screen-admin -->
+
 <script>
+  let adminToken = sessionStorage.getItem('adminToken') || '';
   let recorridos = [];
 
+  // ── AUTH ──────────────────────────────────────────
+  function adminHeaders(extra) {
+    return { 'Content-Type': 'application/json', 'x-admin-token': adminToken, ...extra };
+  }
+
+  async function doLogin() {
+    const usuario = document.getElementById('login-usuario').value.trim();
+    const clave   = document.getElementById('login-clave').value;
+    const btn     = document.getElementById('btn-login');
+    const errEl   = document.getElementById('login-error');
+    if (!usuario || !clave) { errEl.textContent = 'Completá usuario y contraseña'; return; }
+    btn.disabled = true; btn.textContent = 'Ingresando...';
+    errEl.textContent = '';
+    try {
+      const res = await fetch('/api/admin/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ usuario, clave }),
+      });
+      const data = await res.json();
+      if (!res.ok) { errEl.textContent = data.error || 'Error al ingresar'; return; }
+      adminToken = data.token;
+      sessionStorage.setItem('adminToken', adminToken);
+      mostrarAdmin();
+    } finally {
+      btn.disabled = false; btn.textContent = 'Ingresar';
+    }
+  }
+
+  async function doLogout() {
+    await fetch('/api/admin/logout', { method: 'POST', headers: adminHeaders() }).catch(() => {});
+    sessionStorage.removeItem('adminToken');
+    adminToken = '';
+    document.getElementById('screen-admin').style.display = 'none';
+    document.getElementById('screen-login').style.display = 'flex';
+    document.getElementById('login-clave').value = '';
+    document.getElementById('login-error').textContent = '';
+  }
+
+  async function verificarToken() {
+    if (!adminToken) return false;
+    const res = await fetch('/api/admin/recorridos', { headers: adminHeaders() });
+    return res.ok;
+  }
+
+  function mostrarAdmin() {
+    document.getElementById('screen-login').style.display = 'none';
+    document.getElementById('screen-admin').style.display = 'block';
+    cargarRecorridos();
+    cargarReportes();
+    cargarEstadoDia();
+    document.getElementById('fecha-reporte').value = new Date().toISOString().slice(0, 10);
+  }
+
+  // Verificar sesión al cargar
+  (async () => {
+    if (adminToken && await verificarToken()) {
+      mostrarAdmin();
+    } else {
+      sessionStorage.removeItem('adminToken');
+      adminToken = '';
+    }
+  })();
+
+  // ── RECORRIDOS ────────────────────────────────────
   async function cargarRecorridos() {
-    const res = await fetch('/api/admin/recorridos');
+    const res = await fetch('/api/admin/recorridos', { headers: adminHeaders() });
     recorridos = await res.json();
     renderizarRecorridos();
     actualizarSelectReset();
@@ -406,7 +581,7 @@
 
     const res = await fetch('/api/admin/recorrido', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: adminHeaders(),
       body: JSON.stringify({ nombre, codigo })
     });
 
@@ -426,7 +601,7 @@
   async function eliminarRecorrido(id) {
     const r = recorridos.find(x => x.id === id);
     if (!confirm(`¿Eliminar el recorrido "${r?.nombre}"? Esta acción no se puede deshacer.`)) return;
-    await fetch(`/api/admin/recorrido/${id}`, { method: 'DELETE' });
+    await fetch(`/api/admin/recorrido/${id}`, { method: 'DELETE', headers: adminHeaders() });
     toast('Recorrido eliminado');
     await cargarRecorridos();
   }
@@ -438,7 +613,7 @@
 
     const res = await fetch('/api/admin/pasajero', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: adminHeaders(),
       body: JSON.stringify({ nombre, recorrido_id })
     });
 
@@ -456,7 +631,7 @@
     const r = recorridos.find(x => x.id === recorrido_id);
     const p = r?.pasajeros.find(x => x.id === id);
     if (!confirm(`¿Quitar a "${p?.nombre}" del recorrido?`)) return;
-    await fetch(`/api/admin/pasajero/${id}`, { method: 'DELETE' });
+    await fetch(`/api/admin/pasajero/${id}`, { method: 'DELETE', headers: adminHeaders() });
     toast('Persona eliminada');
     const estabaAbierto = document.getElementById(`panel-${recorrido_id}`)?.classList.contains('abierto');
     await cargarRecorridos();
@@ -484,7 +659,7 @@
     if (!confirm(`¿Reiniciar la sesión de hoy para "${r?.nombre}"? Se borrarán todos los registros de hoy.`)) return;
     await fetch('/api/admin/reset', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: adminHeaders(),
       body: JSON.stringify({ recorrido_id: parseInt(recorrido_id) })
     });
     toast('Sesión reiniciada');
@@ -503,10 +678,6 @@
     return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
   }
 
-  cargarRecorridos();
-  cargarReportes();
-  cargarEstadoDia();
-  document.getElementById('fecha-reporte').value = new Date().toISOString().slice(0, 10);
 
   async function cargarEstadoDia() {
     const res   = await fetch('/api/dashboard');
@@ -549,7 +720,7 @@
   async function marcarAviso(recorrido_id, pasajero_id) {
     await fetch('/api/admin/aviso', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: adminHeaders(),
       body: JSON.stringify({ recorrido_id, pasajero_id }),
     });
     toast('Aviso registrado');
@@ -559,15 +730,25 @@
   async function desmarcarAviso(recorrido_id, pasajero_id) {
     await fetch('/api/admin/aviso', {
       method: 'DELETE',
-      headers: { 'Content-Type': 'application/json' },
+      headers: adminHeaders(),
       body: JSON.stringify({ recorrido_id, pasajero_id }),
     });
     toast('Aviso eliminado');
     cargarEstadoDia();
   }
 
+  async function descargarReporte(fecha) {
+    const res = await fetch(`/api/admin/reporte/${fecha}/xlsx`, { headers: adminHeaders() });
+    if (!res.ok) { toast('Error al descargar'); return; }
+    const blob = await res.blob();
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href = url; a.download = `reporte-${fecha}.xlsx`; a.click();
+    URL.revokeObjectURL(url);
+  }
+
   async function cargarReportes() {
-    const res = await fetch('/api/admin/reportes');
+    const res = await fetch('/api/admin/reportes', { headers: adminHeaders() });
     const fechas = await res.json();
     const lista = document.getElementById('lista-reportes');
     if (!fechas.length) {
@@ -581,7 +762,7 @@
         <div>
           <div class="reporte-fecha">📄 ${label}</div>
         </div>
-        <a class="btn-csv" href="/api/admin/reporte/${fecha}/xlsx" download="reporte-${fecha}.xlsx">⬇ Descargar Excel</a>
+        <button class="btn-csv" onclick="descargarReporte('${fecha}')">⬇ Descargar Excel</button>
       </div>`;
     }).join('');
   }
@@ -594,7 +775,7 @@
     btn.textContent = 'Generando...';
     await fetch('/api/admin/reporte/generar', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: adminHeaders(),
       body: JSON.stringify({ fecha: fechaInput }),
     });
     const [a, m, d] = fechaInput.split('-');

@@ -12,6 +12,33 @@ const io = new Server(httpServer);
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
+// ─── AUTH ─────────────────────────────────────────────────────────────────────
+
+const ADMIN_USER = process.env.ADMIN_USER || '1793209215001';
+const ADMIN_PASS = process.env.ADMIN_PASS || 'Izzy2026';
+const tokens = new Set();
+
+function requireAdmin(req, res, next) {
+  const token = req.headers['x-admin-token'];
+  if (!token || !tokens.has(token)) return res.status(401).json({ error: 'No autorizado' });
+  next();
+}
+
+app.post('/api/admin/login', (req, res) => {
+  const { usuario, clave } = req.body;
+  if (usuario === ADMIN_USER && clave === ADMIN_PASS) {
+    const token = Math.random().toString(36).slice(2) + Date.now().toString(36);
+    tokens.add(token);
+    return res.json({ token });
+  }
+  res.status(401).json({ error: 'Usuario o clave incorrectos' });
+});
+
+app.post('/api/admin/logout', requireAdmin, (req, res) => {
+  tokens.delete(req.headers['x-admin-token']);
+  res.json({ ok: true });
+});
+
 // ─── REST API ────────────────────────────────────────────────────────────────
 
 app.get('/api/recorrido/:codigo', (req, res) => {
@@ -30,11 +57,11 @@ app.get('/api/chofer/:codigo/historial', (req, res) => {
   res.json(data);
 });
 
-app.get('/api/admin/recorridos', (req, res) => {
+app.get('/api/admin/recorridos', requireAdmin, (req, res) => {
   res.json(db.getAllRecorridosConPasajeros());
 });
 
-app.post('/api/admin/recorrido', (req, res) => {
+app.post('/api/admin/recorrido', requireAdmin, (req, res) => {
   const { nombre, codigo } = req.body;
   if (!nombre?.trim() || !codigo?.trim())
     return res.status(400).json({ error: 'Nombre y código son requeridos' });
@@ -46,13 +73,13 @@ app.post('/api/admin/recorrido', (req, res) => {
   }
 });
 
-app.delete('/api/admin/recorrido/:id', (req, res) => {
+app.delete('/api/admin/recorrido/:id', requireAdmin, (req, res) => {
   db.eliminarRecorrido(req.params.id);
   io.emit('estado_completo', db.getEstadoTodos());
   res.json({ ok: true });
 });
 
-app.post('/api/admin/pasajero', (req, res) => {
+app.post('/api/admin/pasajero', requireAdmin, (req, res) => {
   const { nombre, recorrido_id } = req.body;
   if (!nombre?.trim() || !recorrido_id)
     return res.status(400).json({ error: 'Nombre y recorrido son requeridos' });
@@ -60,20 +87,20 @@ app.post('/api/admin/pasajero', (req, res) => {
   res.json({ id });
 });
 
-app.delete('/api/admin/pasajero/:id', (req, res) => {
+app.delete('/api/admin/pasajero/:id', requireAdmin, (req, res) => {
   db.eliminarPasajero(req.params.id);
   io.emit('estado_completo', db.getEstadoTodos());
   res.json({ ok: true });
 });
 
-app.post('/api/admin/reset', (req, res) => {
+app.post('/api/admin/reset', requireAdmin, (req, res) => {
   const { recorrido_id } = req.body;
   db.resetSesionHoy(recorrido_id);
   io.emit('estado_completo', db.getEstadoTodos());
   res.json({ ok: true });
 });
 
-app.post('/api/admin/aviso', (req, res) => {
+app.post('/api/admin/aviso', requireAdmin, (req, res) => {
   const { recorrido_id, pasajero_id } = req.body;
   if (!recorrido_id || !pasajero_id) return res.status(400).json({ error: 'Faltan datos' });
   db.marcarAviso(recorrido_id, pasajero_id, hora());
@@ -81,23 +108,23 @@ app.post('/api/admin/aviso', (req, res) => {
   res.json({ ok: true });
 });
 
-app.delete('/api/admin/aviso', (req, res) => {
+app.delete('/api/admin/aviso', requireAdmin, (req, res) => {
   const { recorrido_id, pasajero_id } = req.body;
   db.desmarcarAviso(recorrido_id, pasajero_id);
   io.emit('estado_completo', db.getEstadoTodos());
   res.json({ ok: true });
 });
 
-app.get('/api/admin/reportes', (req, res) => {
+app.get('/api/admin/reportes', requireAdmin, (req, res) => {
   res.json(db.listarReportes());
 });
 
-app.post('/api/admin/reporte/generar', (req, res) => {
+app.post('/api/admin/reporte/generar', requireAdmin, (req, res) => {
   const { fecha } = req.body;
   res.json(db.guardarReporte(fecha || undefined));
 });
 
-app.get('/api/admin/reporte/:fecha/xlsx', (req, res) => {
+app.get('/api/admin/reporte/:fecha/xlsx', requireAdmin, (req, res) => {
   const reporte = db.getReporte(req.params.fecha);
   if (!reporte) return res.status(404).json({ error: 'Reporte no encontrado' });
 
