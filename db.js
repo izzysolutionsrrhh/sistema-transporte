@@ -316,6 +316,7 @@ module.exports = {
         total_pasajeros: pasajeros.length,
         recogidos:       retiros.filter(r => r.tipo === 'recogido').length,
         no_estaban:      retiros.filter(r => r.tipo === 'no_estaba').length,
+        avisaron:        retiros.filter(r => r.tipo === 'aviso').length,
         detalle: pasajeros.map(p => {
           const r = retiros.find(x => x.pasajero_id === p.id);
           return { nombre: p.nombre, tipo: r?.tipo || 'pendiente', hora: r?.hora || null };
