@@ -41,6 +41,8 @@ app.post('/api/admin/logout', requireAdmin, (req, res) => {
 
 // ─── REST API ────────────────────────────────────────────────────────────────
 
+app.get('/health', (req, res) => res.json({ status: 'ok' }));
+
 app.get('/api/recorrido/:codigo', (req, res) => {
   const data = db.getEstadoRecorrido(req.params.codigo.toUpperCase());
   if (!data) return res.status(404).json({ error: 'Código de recorrido no encontrado' });

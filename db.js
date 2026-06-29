@@ -5,13 +5,16 @@ const DB_PATH      = path.join(__dirname, 'data.json');
 const REPORTES_DIR = path.join(__dirname, 'reportes');
 
 function ensureReportesDir() {
-  if (!fs.existsSync(REPORTES_DIR)) fs.mkdirSync(REPORTES_DIR);
+  if (!fs.existsSync(REPORTES_DIR)) fs.mkdirSync(REPORTES_DIR, { recursive: true });
 }
 
 const EMPTY = {
   recorridos: [], pasajeros: [], sesiones: [], retiros: [],
   _seq: { recorridos: 0, pasajeros: 0, sesiones: 0, retiros: 0 }
 };
+
+// Inicializar data.json si no existe
+if (!fs.existsSync(DB_PATH)) fs.writeFileSync(DB_PATH, JSON.stringify(EMPTY));
 
 function read() {
   try { return JSON.parse(fs.readFileSync(DB_PATH, 'utf8')); }
