@@ -259,17 +259,21 @@
 
   <!-- Reportes diarios -->
   <div class="card">
-    <h3>📊 Reportes Diarios</h3>
+    <h3>📊 Reportes</h3>
     <p style="font-size:14px;color:var(--muted);margin-bottom:16px">
-      El reporte se guarda automáticamente cada vez que un chofer llega a la oficina.
-      También podés generarlo manualmente en cualquier momento.
+      Elegí un rango de fechas. Si es el mismo día, el reporte se guarda en la lista.
+      Si es un rango, descarga directo sin guardar.
     </p>
     <div class="form-row" style="margin-bottom:16px;align-items:flex-end">
-      <div class="form-group" style="max-width:200px">
-        <label>Fecha del reporte</label>
-        <input type="date" id="fecha-reporte">
+      <div class="form-group" style="max-width:180px">
+        <label>Desde</label>
+        <input type="date" id="fecha-desde">
       </div>
-      <button class="btn btn-azul" onclick="generarReporte()">Generar reporte</button>
+      <div class="form-group" style="max-width:180px">
+        <label>Hasta</label>
+        <input type="date" id="fecha-hasta">
+      </div>
+      <button class="btn btn-azul" onclick="generarReporte()">Generar / Descargar</button>
     </div>
     <div id="lista-reportes"><div class="vacío">Cargando...</div></div>
   </div>
@@ -382,7 +386,9 @@
     document.getElementById('screen-admin').style.display = 'block';
     cargarRecorridos();
     cargarReportes();
-    document.getElementById('fecha-reporte').value = new Date().toISOString().slice(0, 10);
+    const hoy = new Date().toISOString().slice(0, 10);
+    document.getElementById('fecha-desde').value = hoy;
+    document.getElementById('fecha-hasta').value = hoy;
   }
 
   // Verificar sesión al cargar
@@ -631,31 +637,72 @@
     if (!res) return;
     const fechas = await res.json();
     const lista  = document.getElementById('lista-reportes');
-    if (!fechas.length) { lista.innerHTML = '<div class="vacío">No hay reportes todavía.</div>'; return; }
+    if (!fechas.length) { lista.innerHTML = '<div class="vacío">No hay reportes guardados todavía.</div>'; return; }
     lista.innerHTML = fechas.map(fecha => {
       const [anio, mes, dia] = fecha.split('-');
       return `<div class="reporte-item">
         <div><div class="reporte-fecha">📄 ${dia}/${mes}/${anio}</div></div>
-        <button class="btn-csv" onclick="descargarReporte('${fecha}')">⬇ Descargar Excel</button>
+        <div style="display:flex;gap:8px;align-items:center">
+          <button class="btn-csv" onclick="descargarReporte('${fecha}')">⬇ Descargar</button>
+          <button class="btn-rojo-sm" onclick="eliminarReporte('${fecha}')">🗑 Eliminar</button>
+        </div>
       </div>`;
     }).join('');
   }
 
+  async function eliminarReporte(fecha) {
+    const [a, m, d] = fecha.split('-');
+    confirmar(
+      'Eliminar reporte',
+      `¿Eliminar el reporte del ${d}/${m}/${a}? No se puede deshacer.`,
+      async () => {
+        const res = await adminFetch(`/api/admin/reporte/${fecha}`, { method: 'DELETE' });
+        if (!res) return;
+        toast('Reporte eliminado');
+        await cargarReportes();
+      }
+    );
+  }
+
   async function generarReporte() {
-    const fechaInput = document.getElementById('fecha-reporte').value;
-    if (!fechaInput) { toast('Seleccioná una fecha'); return; }
+    const desde = document.getElementById('fecha-desde').value;
+    const hasta = document.getElementById('fecha-hasta').value;
+    if (!desde || !hasta) { toast('Completá las dos fechas'); return; }
+    if (desde > hasta) { toast('La fecha "Desde" no puede ser mayor a "Hasta"'); return; }
+
     const btn = event.target;
     btn.disabled = true; btn.textContent = 'Generando...';
-    const res = await adminFetch('/api/admin/reporte/generar', {
-      method: 'POST',
-      body: JSON.stringify({ fecha: fechaInput }),
-    });
-    if (res) {
-      const [a, m, d] = fechaInput.split('-');
-      toast(`Reporte del ${d}/${m}/${a} generado`);
-      await cargarReportes();
+
+    try {
+      if (desde === hasta) {
+        // Día único → guardar en DB y mostrar en lista
+        const res = await adminFetch('/api/admin/reporte/generar', {
+          method: 'POST',
+          body: JSON.stringify({ fecha: desde }),
+        });
+        if (res) {
+          const [a, m, d] = desde.split('-');
+          toast(`Reporte del ${d}/${m}/${a} guardado`);
+          await cargarReportes();
+        }
+      } else {
+        // Rango → descargar directamente sin guardar
+        const res = await fetch(
+          `/api/admin/reporte/rango/xlsx?desde=${desde}&hasta=${hasta}`,
+          { headers: { 'x-admin-token': adminToken } }
+        );
+        if (res.status === 401) { adminFetch('/health'); return; }
+        if (!res.ok) { toast('Error al generar el reporte'); return; }
+        const blob = await res.blob();
+        const url  = URL.createObjectURL(blob);
+        const a    = document.createElement('a');
+        a.href = url; a.download = `reporte-${desde}-al-${hasta}.xlsx`; a.click();
+        URL.revokeObjectURL(url);
+        toast(`Reporte ${desde} → ${hasta} descargado`);
+      }
+    } finally {
+      btn.disabled = false; btn.textContent = 'Generar / Descargar';
     }
-    btn.disabled = false; btn.textContent = 'Generar reporte';
   }
 </script>
 </body>

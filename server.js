@@ -169,6 +169,52 @@ app.post('/api/admin/reporte/generar', requireAdmin, async (req, res) => {
   res.json(await db.guardarReporte(fecha || undefined));
 });
 
+app.delete('/api/admin/reporte/:fecha', requireAdmin, async (req, res) => {
+  await db.eliminarReporte(req.params.fecha);
+  res.json({ ok: true });
+});
+
+app.get('/api/admin/reporte/rango/xlsx', requireAdmin, async (req, res) => {
+  const { desde, hasta } = req.query;
+  if (!desde || !hasta || desde > hasta)
+    return res.status(400).json({ error: 'Fechas inválidas' });
+
+  const filas = await db.generarReporteRango(desde, hasta);
+
+  const estadoLabel = { completado: 'Completado', en_recorrido: 'En recorrido', no_asistio: 'No asistió', pendiente: 'Pendiente' };
+  const tipoLabel   = { recogido: 'Recogido', no_estaba: 'No estaba', aviso: 'Avisó que no va', pendiente: 'Pendiente' };
+
+  const wsResumen = XLSX.utils.aoa_to_sheet([
+    [`Reporte de Recorridos — ${desde} al ${hasta}`],
+    [],
+    ['Fecha', 'Recorrido', 'Placa', 'Estado', 'Hora inicio', 'Hora llegada', 'Total pasajeros', 'Recogidos', 'No estaban', 'Avisaron'],
+    ...filas.map(r => [
+      r.fecha, r.nombre, r.placa, estadoLabel[r.estado] || r.estado,
+      r.hora_inicio || '-', r.hora_llegada || '-',
+      r.total_pasajeros, r.recogidos, r.no_estaban, r.avisaron,
+    ]),
+  ]);
+  wsResumen['!cols'] = [{ wch: 12 }, { wch: 26 }, { wch: 10 }, { wch: 15 }, { wch: 13 }, { wch: 14 }, { wch: 16 }, { wch: 12 }, { wch: 12 }, { wch: 12 }];
+  wsResumen['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 9 } }];
+
+  const wsDetalle = XLSX.utils.aoa_to_sheet([
+    ['Fecha', 'Recorrido', 'Placa', 'Pasajero', 'Estado', 'Hora'],
+    ...filas.flatMap(r =>
+      r.detalle.map(p => [r.fecha, r.nombre, r.placa, p.nombre, tipoLabel[p.tipo] || p.tipo, p.hora || '-'])
+    ),
+  ]);
+  wsDetalle['!cols'] = [{ wch: 12 }, { wch: 26 }, { wch: 10 }, { wch: 26 }, { wch: 18 }, { wch: 10 }];
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, wsResumen, 'Resumen');
+  XLSX.utils.book_append_sheet(wb, wsDetalle, 'Detalle pasajeros');
+
+  const buffer = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
+  res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+  res.setHeader('Content-Disposition', `attachment; filename="reporte-${desde}-al-${hasta}.xlsx"`);
+  res.send(buffer);
+});
+
 app.get('/api/admin/reporte/:fecha/xlsx', requireAdmin, async (req, res) => {
   const reporte = await db.getReporte(req.params.fecha);
   if (!reporte) return res.status(404).json({ error: 'Reporte no encontrado' });
