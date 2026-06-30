@@ -4,7 +4,6 @@ const express = require('express');
 const { createServer } = require('http');
 const { Server } = require('socket.io');
 const path = require('path');
-const XLSX = require('xlsx');
 const ExcelJS = require('exceljs');
 const rateLimit = require('express-rate-limit');
 const multer = require('multer');
@@ -126,9 +125,19 @@ app.delete('/api/admin/pasajero/:id', requireAdmin, async (req, res) => {
 app.post('/api/admin/importar', requireAdmin, upload.single('archivo'), async (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'No se recibió ningún archivo' });
   try {
-    const wb = XLSX.read(req.file.buffer, { type: 'buffer' });
-    const ws = wb.Sheets[wb.SheetNames[0]];
-    const filas = XLSX.utils.sheet_to_json(ws, { defval: '' });
+    const wb = new ExcelJS.Workbook();
+    await wb.xlsx.load(req.file.buffer);
+    const ws = wb.worksheets[0];
+    if (!ws) return res.status(400).json({ error: 'El archivo está vacío' });
+    const headers = ws.getRow(1).values.slice(1).map(h => String(h || '').trim().toLowerCase());
+    const filas = [];
+    ws.eachRow((row, i) => {
+      if (i === 1) return;
+      const vals = row.values.slice(1);
+      const obj = {};
+      headers.forEach((h, idx) => { obj[h] = vals[idx] != null ? String(vals[idx]).trim() : ''; });
+      filas.push(obj);
+    });
     if (!filas.length) return res.status(400).json({ error: 'El archivo está vacío' });
     const resultado = await db.importarRecorridos(filas);
     io.emit('estado_completo', await db.getEstadoTodos());
