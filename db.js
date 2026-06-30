@@ -400,6 +400,68 @@ module.exports = {
     return rows[0]?.datos || null;
   },
 
+  async eliminarReporte(fecha) {
+    await pool.query('DELETE FROM reportes WHERE fecha = $1', [fecha]);
+  },
+
+  async generarReporteRango(fechaInicio, fechaFin) {
+    const { rows: recorridos } = await pool.query(
+      'SELECT * FROM recorridos WHERE activo = TRUE ORDER BY nombre'
+    );
+    if (!recorridos.length) return [];
+
+    const ids = recorridos.map(r => r.id);
+
+    const [{ rows: pasajeros }, { rows: sesiones }] = await Promise.all([
+      pool.query('SELECT * FROM pasajeros WHERE recorrido_id = ANY($1) AND activo = TRUE ORDER BY orden', [ids]),
+      pool.query('SELECT * FROM sesiones WHERE recorrido_id = ANY($1) AND fecha >= $2 AND fecha <= $3 ORDER BY fecha', [ids, fechaInicio, fechaFin]),
+    ]);
+
+    let retiros = [];
+    if (sesiones.length) {
+      const { rows } = await pool.query(
+        'SELECT * FROM retiros WHERE sesion_id = ANY($1)',
+        [sesiones.map(s => s.id)]
+      );
+      retiros = rows.map(r => ({ ...r, tipo: r.tipo || 'recogido' }));
+    }
+
+    // Generar todas las fechas del rango
+    const fechas = [];
+    const [y1, m1, d1] = fechaInicio.split('-').map(Number);
+    const [y2, m2, d2] = fechaFin.split('-').map(Number);
+    const cur = new Date(Date.UTC(y1, m1 - 1, d1));
+    const end = new Date(Date.UTC(y2, m2 - 1, d2));
+    while (cur <= end) {
+      fechas.push(cur.toISOString().slice(0, 10));
+      cur.setUTCDate(cur.getUTCDate() + 1);
+    }
+
+    return fechas.flatMap(fecha =>
+      recorridos.map(rec => {
+        const pasx   = pasajeros.filter(p => p.recorrido_id === rec.id);
+        const sesion = sesiones.find(s => s.recorrido_id === rec.id && s.fecha === fecha) || null;
+        const ret    = sesion ? retiros.filter(r => r.sesion_id === sesion.id) : [];
+        return {
+          fecha,
+          nombre:          rec.nombre,
+          placa:           rec.codigo,
+          estado:          sesion?.estado || 'pendiente',
+          hora_inicio:     sesion?.hora_inicio  || null,
+          hora_llegada:    sesion?.hora_llegada || null,
+          total_pasajeros: pasx.length,
+          recogidos:       ret.filter(r => r.tipo === 'recogido').length,
+          no_estaban:      ret.filter(r => r.tipo === 'no_estaba').length,
+          avisaron:        ret.filter(r => r.tipo === 'aviso').length,
+          detalle: pasx.map(p => {
+            const r = ret.find(x => x.pasajero_id === p.id);
+            return { nombre: p.nombre, tipo: r?.tipo || 'pendiente', hora: r?.hora || null };
+          }),
+        };
+      })
+    );
+  },
+
   async importarRecorridos(filas) {
     let recorridosCreados = 0, pasajerosCreados = 0;
     const errores = [];
