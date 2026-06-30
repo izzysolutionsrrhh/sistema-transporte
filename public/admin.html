@@ -155,11 +155,6 @@
     .form-agregar input:focus { border-color: var(--azul); }
     .vacío { color: var(--muted); font-size: 14px; padding: 8px 0; }
 
-    /* ── AVISO ──────────────────────────────────────── */
-    .btn-aviso-sm { background: transparent; color: #7c3aed; border: 1px solid #7c3aed; padding: 5px 10px; font-size: 12px; border-radius: 6px; cursor: pointer; white-space: nowrap; }
-    .btn-aviso-sm:hover { background: #7c3aed; color: white; }
-    .texto-aviso { color: #7c3aed; font-size: 12px; font-weight: 700; }
-
     /* ── REPORTES ───────────────────────────────────── */
     .reporte-item { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; background: #f8fafc; border-radius: 8px; margin-bottom: 8px; font-size: 14px; }
     .reporte-item .reporte-fecha { font-weight: 700; }
@@ -260,15 +255,6 @@
   <div class="card">
     <h3>🚌 Recorridos Configurados</h3>
     <div id="lista-recorridos"><div class="vacío">Cargando...</div></div>
-  </div>
-
-  <!-- Estado del día -->
-  <div class="card">
-    <h3>📵 Avisos del día — pasajeros que no van</h3>
-    <p style="font-size:14px;color:var(--muted);margin-bottom:16px">
-      Marcá acá a los pasajeros que avisaron que no irán hoy. El chofer lo verá en su app.
-    </p>
-    <div id="estado-dia"><div class="vacío">Cargando...</div></div>
   </div>
 
   <!-- Reportes diarios -->
@@ -396,7 +382,6 @@
     document.getElementById('screen-admin').style.display = 'block';
     cargarRecorridos();
     cargarReportes();
-    cargarEstadoDia();
     document.getElementById('fecha-reporte').value = new Date().toISOString().slice(0, 10);
   }
 
@@ -590,44 +575,6 @@
     return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
   }
 
-  async function cargarEstadoDia() {
-    const res = await fetch('/api/dashboard');
-    const datos = await res.json();
-    const cont  = document.getElementById('estado-dia');
-    if (!datos.length) { cont.innerHTML = '<div class="vacío">No hay recorridos configurados.</div>'; return; }
-
-    cont.innerHTML = datos.map(({ recorrido, pasajeros, retiros }) => {
-      const marcados = {};
-      retiros.forEach(r => { marcados[r.pasajero_id] = r.tipo; });
-      const filas = pasajeros.length
-        ? pasajeros.map(p => {
-            const tipo = marcados[p.id];
-            const esAviso     = tipo === 'aviso';
-            const estaOcupado = tipo && tipo !== 'aviso';
-            return `<div class="pasajero-item">
-              <span class="${esAviso ? 'texto-aviso' : ''}">${esc(p.nombre)}${esAviso ? ' · Avisó que no va' : ''}</span>
-              ${estaOcupado
-                ? `<span style="font-size:12px;color:var(--muted)">${tipo === 'recogido' ? 'Recogido' : 'No estaba'}</span>`
-                : esAviso
-                  ? `<button class="btn-naranja-sm" onclick="desmarcarAviso(${recorrido.id},${p.id})">↩ Desmarcar</button>`
-                  : `<button class="btn-aviso-sm" onclick="marcarAviso(${recorrido.id},${p.id})">📵 Avisó que no va</button>`
-              }
-            </div>`;
-          }).join('')
-        : '<div class="vacío">Sin pasajeros</div>';
-
-      return `<div class="recorrido-bloque">
-        <div class="recorrido-header" style="cursor:default">
-          <div class="recorrido-info">
-            <div class="recorrido-nombre">${esc(recorrido.nombre)}</div>
-            <div class="recorrido-codigo">Placa: <strong>${esc(recorrido.codigo)}</strong></div>
-          </div>
-        </div>
-        <div class="pasajeros-panel abierto">${filas}</div>
-      </div>`;
-    }).join('');
-  }
-
   async function importarExcel() {
     const input     = document.getElementById('input-importar');
     const resultado = document.getElementById('resultado-importar');
@@ -664,26 +611,6 @@
     } catch {
       toast('Error de conexión al importar');
     }
-  }
-
-  async function marcarAviso(recorrido_id, pasajero_id) {
-    const res = await adminFetch('/api/admin/aviso', {
-      method: 'POST',
-      body: JSON.stringify({ recorrido_id, pasajero_id }),
-    });
-    if (!res) return;
-    toast('Aviso registrado');
-    cargarEstadoDia();
-  }
-
-  async function desmarcarAviso(recorrido_id, pasajero_id) {
-    const res = await adminFetch('/api/admin/aviso', {
-      method: 'DELETE',
-      body: JSON.stringify({ recorrido_id, pasajero_id }),
-    });
-    if (!res) return;
-    toast('Aviso eliminado');
-    cargarEstadoDia();
   }
 
   async function descargarReporte(fecha) {
