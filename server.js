@@ -5,6 +5,7 @@ const { createServer } = require('http');
 const { Server } = require('socket.io');
 const path = require('path');
 const XLSX = require('xlsx');
+const ExcelJS = require('exceljs');
 const rateLimit = require('express-rate-limit');
 const multer = require('multer');
 const db = require('./db');
@@ -169,6 +170,118 @@ app.post('/api/admin/reporte/generar', requireAdmin, async (req, res) => {
   res.json(await db.guardarReporte(fecha || undefined));
 });
 
+// ─── Excel estilizado ────────────────────────────────────────────────────────
+
+const ESTADO_LABEL = { completado: 'Completado', en_recorrido: 'En recorrido', no_asistio: 'No asistió', pendiente: 'Pendiente' };
+const TIPO_LABEL   = { recogido: 'Recogido', no_estaba: 'No estaba', aviso: 'Avisó que no va', pendiente: 'Pendiente' };
+
+const COLOR = {
+  headerBg:    'FF1E293B',
+  headerFont:  'FFFFFFFF',
+  titleBg:     'FF1D4ED8',
+  completado:  'FFD1FAE5',
+  no_asistio:  'FFFEE2E2',
+  en_recorrido:'FFFEF9C3',
+  pendiente:   'FFF8FAFC',
+  recogido:    'FFD1FAE5',
+  no_estaba:   'FFFEE2E2',
+  aviso:       'FFEDE9FE',
+  border:      'FFE2E8F0',
+};
+
+function excelBorder() {
+  const s = { style: 'thin', color: { argb: COLOR.border } };
+  return { top: s, bottom: s, left: s, right: s };
+}
+
+function styleHeader(row) {
+  row.height = 28;
+  row.eachCell(cell => {
+    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLOR.headerBg } };
+    cell.font = { bold: true, color: { argb: COLOR.headerFont }, size: 11, name: 'Calibri' };
+    cell.alignment = { vertical: 'middle', horizontal: 'center' };
+    cell.border = excelBorder();
+  });
+}
+
+function styleDataRow(row, bgColor) {
+  row.height = 18;
+  row.eachCell({ includeEmpty: true }, cell => {
+    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: bgColor } };
+    cell.border = excelBorder();
+    cell.alignment = { vertical: 'middle' };
+    if (typeof cell.value === 'number') cell.alignment.horizontal = 'right';
+  });
+}
+
+async function construirExcel(titulo, filasResumen, filasDetalle, conFecha = false) {
+  const wb = new ExcelJS.Workbook();
+  wb.creator = 'Sistema de Recorridos';
+
+  // ── Hoja Resumen ──────────────────────────────────────────────
+  const ws1 = wb.addWorksheet('Resumen', { views: [{ state: 'frozen', ySplit: 2 }] });
+
+  const colsResumen = conFecha
+    ? [{ header: 'Fecha', width: 13 }, { header: 'Recorrido', width: 28 }, { header: 'Placa', width: 11 }, { header: 'Estado', width: 16 }, { header: 'Hora inicio', width: 13 }, { header: 'Hora llegada', width: 14 }, { header: 'Total', width: 8 }, { header: 'Recogidos', width: 11 }, { header: 'No estaban', width: 12 }, { header: 'Avisaron', width: 11 }]
+    : [{ header: 'Recorrido', width: 28 }, { header: 'Placa', width: 11 }, { header: 'Estado', width: 16 }, { header: 'Hora inicio', width: 13 }, { header: 'Hora llegada', width: 14 }, { header: 'Total', width: 8 }, { header: 'Recogidos', width: 11 }, { header: 'No estaban', width: 12 }, { header: 'Avisaron', width: 11 }];
+
+  ws1.columns = colsResumen;
+
+  // Título
+  const numCols1 = colsResumen.length;
+  ws1.spliceRows(1, 0, []);
+  ws1.mergeCells(1, 1, 1, numCols1);
+  const titleCell1 = ws1.getCell(1, 1);
+  titleCell1.value = titulo;
+  titleCell1.fill  = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLOR.titleBg } };
+  titleCell1.font  = { bold: true, size: 14, color: { argb: COLOR.headerFont }, name: 'Calibri' };
+  titleCell1.alignment = { horizontal: 'center', vertical: 'middle' };
+  ws1.getRow(1).height = 36;
+
+  styleHeader(ws1.getRow(2));
+  ws1.autoFilter = { from: { row: 2, column: 1 }, to: { row: 2, column: numCols1 } };
+
+  filasResumen.forEach(r => {
+    const values = conFecha
+      ? [r.fecha, r.nombre, r.placa, ESTADO_LABEL[r.estado] || r.estado, r.hora_inicio || '-', r.hora_llegada || '-', r.total_pasajeros, r.recogidos, r.no_estaban, r.avisaron]
+      : [r.nombre, r.placa, ESTADO_LABEL[r.estado] || r.estado, r.hora_inicio || '-', r.hora_llegada || '-', r.total_pasajeros, r.recogidos, r.no_estaban, r.avisaron];
+    const row = ws1.addRow(values);
+    styleDataRow(row, COLOR[r.estado] || COLOR.pendiente);
+  });
+
+  // ── Hoja Detalle ──────────────────────────────────────────────
+  const ws2 = wb.addWorksheet('Detalle pasajeros', { views: [{ state: 'frozen', ySplit: 2 }] });
+
+  const colsDetalle = conFecha
+    ? [{ header: 'Fecha', width: 13 }, { header: 'Recorrido', width: 28 }, { header: 'Placa', width: 11 }, { header: 'Pasajero', width: 28 }, { header: 'Estado', width: 18 }, { header: 'Hora', width: 10 }]
+    : [{ header: 'Recorrido', width: 28 }, { header: 'Placa', width: 11 }, { header: 'Pasajero', width: 28 }, { header: 'Estado', width: 18 }, { header: 'Hora', width: 10 }];
+
+  ws2.columns = colsDetalle;
+
+  const numCols2 = colsDetalle.length;
+  ws2.spliceRows(1, 0, []);
+  ws2.mergeCells(1, 1, 1, numCols2);
+  const titleCell2 = ws2.getCell(1, 1);
+  titleCell2.value = titulo;
+  titleCell2.fill  = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLOR.titleBg } };
+  titleCell2.font  = { bold: true, size: 14, color: { argb: COLOR.headerFont }, name: 'Calibri' };
+  titleCell2.alignment = { horizontal: 'center', vertical: 'middle' };
+  ws2.getRow(1).height = 36;
+
+  styleHeader(ws2.getRow(2));
+  ws2.autoFilter = { from: { row: 2, column: 1 }, to: { row: 2, column: numCols2 } };
+
+  filasDetalle.forEach(d => {
+    const values = conFecha
+      ? [d.fecha, d.nombre, d.placa, d.pasajero, TIPO_LABEL[d.tipo] || d.tipo, d.hora || '-']
+      : [d.nombre, d.placa, d.pasajero, TIPO_LABEL[d.tipo] || d.tipo, d.hora || '-'];
+    const row = ws2.addRow(values);
+    styleDataRow(row, COLOR[d.tipo] || COLOR.pendiente);
+  });
+
+  return Buffer.from(await wb.xlsx.writeBuffer());
+}
+
 app.delete('/api/admin/reporte/:fecha', requireAdmin, async (req, res) => {
   await db.eliminarReporte(req.params.fecha);
   res.json({ ok: true });
@@ -180,36 +293,13 @@ app.get('/api/admin/reporte/rango/xlsx', requireAdmin, async (req, res) => {
     return res.status(400).json({ error: 'Fechas inválidas' });
 
   const filas = await db.generarReporteRango(desde, hasta);
+  const filasDetalle = filas.flatMap(r =>
+    r.detalle.map(p => ({ fecha: r.fecha, nombre: r.nombre, placa: r.placa, pasajero: p.nombre, tipo: p.tipo, hora: p.hora }))
+  );
 
-  const estadoLabel = { completado: 'Completado', en_recorrido: 'En recorrido', no_asistio: 'No asistió', pendiente: 'Pendiente' };
-  const tipoLabel   = { recogido: 'Recogido', no_estaba: 'No estaba', aviso: 'Avisó que no va', pendiente: 'Pendiente' };
+  const titulo = `Reporte de Recorridos — ${desde} al ${hasta}`;
+  const buffer = await construirExcel(titulo, filas, filasDetalle, true);
 
-  const wsResumen = XLSX.utils.aoa_to_sheet([
-    [`Reporte de Recorridos — ${desde} al ${hasta}`],
-    [],
-    ['Fecha', 'Recorrido', 'Placa', 'Estado', 'Hora inicio', 'Hora llegada', 'Total pasajeros', 'Recogidos', 'No estaban', 'Avisaron'],
-    ...filas.map(r => [
-      r.fecha, r.nombre, r.placa, estadoLabel[r.estado] || r.estado,
-      r.hora_inicio || '-', r.hora_llegada || '-',
-      r.total_pasajeros, r.recogidos, r.no_estaban, r.avisaron,
-    ]),
-  ]);
-  wsResumen['!cols'] = [{ wch: 12 }, { wch: 26 }, { wch: 10 }, { wch: 15 }, { wch: 13 }, { wch: 14 }, { wch: 16 }, { wch: 12 }, { wch: 12 }, { wch: 12 }];
-  wsResumen['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 9 } }];
-
-  const wsDetalle = XLSX.utils.aoa_to_sheet([
-    ['Fecha', 'Recorrido', 'Placa', 'Pasajero', 'Estado', 'Hora'],
-    ...filas.flatMap(r =>
-      r.detalle.map(p => [r.fecha, r.nombre, r.placa, p.nombre, tipoLabel[p.tipo] || p.tipo, p.hora || '-'])
-    ),
-  ]);
-  wsDetalle['!cols'] = [{ wch: 12 }, { wch: 26 }, { wch: 10 }, { wch: 26 }, { wch: 18 }, { wch: 10 }];
-
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, wsResumen, 'Resumen');
-  XLSX.utils.book_append_sheet(wb, wsDetalle, 'Detalle pasajeros');
-
-  const buffer = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
   res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
   res.setHeader('Content-Disposition', `attachment; filename="reporte-${desde}-al-${hasta}.xlsx"`);
   res.send(buffer);
@@ -219,35 +309,13 @@ app.get('/api/admin/reporte/:fecha/xlsx', requireAdmin, async (req, res) => {
   const reporte = await db.getReporte(req.params.fecha);
   if (!reporte) return res.status(404).json({ error: 'Reporte no encontrado' });
 
-  const estadoLabel = { completado: 'Completado', en_recorrido: 'En recorrido', no_asistio: 'No asistió', pendiente: 'Pendiente' };
-  const tipoLabel   = { recogido: 'Recogido', no_estaba: 'No estaba', aviso: 'Avisó que no va', pendiente: 'Pendiente' };
+  const filasDetalle = reporte.recorridos.flatMap(r =>
+    r.detalle.map(p => ({ nombre: r.nombre, placa: r.placa, pasajero: p.nombre, tipo: p.tipo, hora: p.hora }))
+  );
 
-  const wsResumen = XLSX.utils.aoa_to_sheet([
-    [`Reporte de Recorridos — ${reporte.fecha}   (generado: ${reporte.generado})`],
-    [],
-    ['Recorrido', 'Placa', 'Estado', 'Hora inicio', 'Hora llegada', 'Total pasajeros', 'Recogidos', 'No estaban', 'Avisaron'],
-    ...reporte.recorridos.map(r => [
-      r.nombre, r.placa, estadoLabel[r.estado] || r.estado,
-      r.hora_inicio || '-', r.hora_llegada || '-',
-      r.total_pasajeros, r.recogidos, r.no_estaban, r.avisaron,
-    ]),
-  ]);
-  wsResumen['!cols'] = [{ wch: 28 }, { wch: 12 }, { wch: 15 }, { wch: 13 }, { wch: 14 }, { wch: 16 }, { wch: 12 }, { wch: 12 }, { wch: 12 }];
-  wsResumen['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 8 } }];
+  const titulo = `Reporte de Recorridos — ${reporte.fecha}   (generado: ${reporte.generado})`;
+  const buffer = await construirExcel(titulo, reporte.recorridos, filasDetalle, false);
 
-  const wsDetalle = XLSX.utils.aoa_to_sheet([
-    ['Recorrido', 'Placa', 'Pasajero', 'Estado', 'Hora'],
-    ...reporte.recorridos.flatMap(r =>
-      r.detalle.map(p => [r.nombre, r.placa, p.nombre, tipoLabel[p.tipo] || p.tipo, p.hora || '-'])
-    ),
-  ]);
-  wsDetalle['!cols'] = [{ wch: 28 }, { wch: 12 }, { wch: 28 }, { wch: 18 }, { wch: 10 }];
-
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, wsResumen, 'Resumen');
-  XLSX.utils.book_append_sheet(wb, wsDetalle, 'Detalle pasajeros');
-
-  const buffer = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
   res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
   res.setHeader('Content-Disposition', `attachment; filename="reporte-${reporte.fecha}.xlsx"`);
   res.send(buffer);
