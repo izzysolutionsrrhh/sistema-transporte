@@ -462,20 +462,13 @@ module.exports = {
     );
   },
 
-  async importarRecorridos(filas) {
+  async importarRecorridos(recorridos) {
     let recorridosCreados = 0, pasajerosCreados = 0;
     const errores = [];
 
-    for (const fila of filas) {
-      const nombre = fila['recorrido']?.toString().trim();
-      const codigo = fila['placa']?.toString().trim().toUpperCase();
-      if (!nombre || !codigo) continue;
-
-      const pasajeros = Object.entries(fila)
-        .filter(([k, v]) => /^pasajero\d+$/i.test(k) && v?.toString().trim())
-        .sort(([a], [b]) => a.localeCompare(b, undefined, { numeric: true }))
-        .map(([, v]) => v.toString().trim())
-        .filter(Boolean);
+    for (const { nombre, placa, pasajeros } of recorridos) {
+      const codigo = placa?.toString().trim().toUpperCase();
+      if (!nombre?.trim() || !codigo) continue;
 
       let recorrido_id;
       try {
