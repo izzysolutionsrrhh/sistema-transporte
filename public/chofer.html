@@ -28,6 +28,36 @@
       min-height: 100dvh;
     }
 
+    /* ── BLOQUEO HORARIO ─────────────────────────────── */
+    #pantalla-bloqueada {
+      position: fixed;
+      inset: 0;
+      background: #0f172a;
+      color: white;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 9999;
+      text-align: center;
+      padding: 32px 24px;
+      gap: 16px;
+    }
+    #pantalla-bloqueada .bloqueo-icono { font-size: 64px; }
+    #pantalla-bloqueada h2 { font-size: 22px; font-weight: 700; margin: 0; }
+    #pantalla-bloqueada .bloqueo-horario {
+      font-size: 15px; color: #94a3b8; margin: 0;
+    }
+    #pantalla-bloqueada .bloqueo-reloj {
+      font-size: 48px; font-weight: 700;
+      font-variant-numeric: tabular-nums;
+      letter-spacing: 2px;
+      color: #38bdf8;
+    }
+    #pantalla-bloqueada .bloqueo-cuenta {
+      font-size: 14px; color: #64748b;
+    }
+
     /* ── BANNER OFFLINE ──────────────────────────────── */
     #banner-offline {
       position: fixed;
@@ -273,6 +303,15 @@
 </head>
 <body>
 
+<!-- Bloqueo de horario -->
+<div id="pantalla-bloqueada" class="hidden">
+  <div class="bloqueo-icono">🔒</div>
+  <h2>Sistema no disponible</h2>
+  <p class="bloqueo-horario">Disponible únicamente de <strong>1:00 am</strong> a <strong>4:00 am</strong> (hora Lima)</p>
+  <div class="bloqueo-reloj" id="bloqueo-reloj">--:--:--</div>
+  <p class="bloqueo-cuenta" id="bloqueo-cuenta"></p>
+</div>
+
 <!-- Banner offline (hidden by default) -->
 <div id="banner-offline" class="hidden">⚠️ Sin conexión — los cambios no se están guardando</div>
 
@@ -347,6 +386,47 @@
   let estado = null;
 
   const $ = id => document.getElementById(id);
+
+  // ── BLOQUEO DE HORARIO (1am – 4am Lima) ────────────────────
+  function horaLima() {
+    const ahora = new Date();
+    const h = parseInt(new Intl.DateTimeFormat('es-PE', { timeZone: 'America/Lima', hour: 'numeric', hour12: false }).format(ahora));
+    const m = parseInt(new Intl.DateTimeFormat('es-PE', { timeZone: 'America/Lima', minute: 'numeric' }).format(ahora));
+    const s = parseInt(new Intl.DateTimeFormat('es-PE', { timeZone: 'America/Lima', second: 'numeric' }).format(ahora));
+    return { h, m, s };
+  }
+
+  function estaEnHorario() {
+    const { h } = horaLima();
+    return h >= 1 && h < 4;
+  }
+
+  function minutosHasta1am() {
+    const { h, m, s } = horaLima();
+    const totalSeg = h * 3600 + m * 60 + s;
+    const objetivo = 1 * 3600; // 1:00am
+    const diff = totalSeg < objetivo ? objetivo - totalSeg : (24 * 3600) - totalSeg + objetivo;
+    const hh = Math.floor(diff / 3600);
+    const mm = Math.floor((diff % 3600) / 60);
+    const ss = diff % 60;
+    return `${String(hh).padStart(2,'0')}:${String(mm).padStart(2,'0')}:${String(ss).padStart(2,'0')}`;
+  }
+
+  function actualizarBloqueo() {
+    const { h, m, s } = horaLima();
+    const reloj = `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+    $('bloqueo-reloj').textContent = reloj;
+
+    if (estaEnHorario()) {
+      $('pantalla-bloqueada').classList.add('hidden');
+    } else {
+      $('pantalla-bloqueada').classList.remove('hidden');
+      $('bloqueo-cuenta').textContent = `Abre en ${minutosHasta1am()}`;
+    }
+  }
+
+  actualizarBloqueo();
+  setInterval(actualizarBloqueo, 1000);
 
   // ── MODAL ───────────────────────────────────────────────────
   let _modalCb = null;
