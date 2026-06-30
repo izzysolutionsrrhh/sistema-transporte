@@ -129,17 +129,41 @@ app.post('/api/admin/importar', requireAdmin, upload.single('archivo'), async (r
     await wb.xlsx.load(req.file.buffer);
     const ws = wb.worksheets[0];
     if (!ws) return res.status(400).json({ error: 'El archivo está vacío' });
-    const headers = ws.getRow(1).values.slice(1).map(h => String(h || '').trim().toLowerCase());
+
+    // Leer todas las filas como arrays (0-indexed)
     const filas = [];
-    ws.eachRow((row, i) => {
-      if (i === 1) return;
-      const vals = row.values.slice(1);
-      const obj = {};
-      headers.forEach((h, idx) => { obj[h] = vals[idx] != null ? String(vals[idx]).trim() : ''; });
-      filas.push(obj);
+    ws.eachRow(row => filas.push(row.values.slice(1)));
+
+    // Detectar columnas de inicio de recorrido: donde aparece "N°"
+    const gruposSet = new Set();
+    filas.forEach(r => {
+      r.forEach((cell, idx) => {
+        if (String(cell ?? '').trim() === 'N°') gruposSet.add(idx);
+      });
     });
-    if (!filas.length) return res.status(400).json({ error: 'El archivo está vacío' });
-    const resultado = await db.importarRecorridos(filas);
+    const grupos = [...gruposSet].sort((a, b) => a - b);
+    if (!grupos.length) return res.status(400).json({ error: 'Formato no reconocido: no se encontraron recorridos' });
+
+    // Parsear cada grupo de columnas: [N°/num, nombre, placa/barrio]
+    const recorridos = [];
+    for (const col of grupos) {
+      let nombre = null, placa = null, pasajeros = [];
+      for (const fila of filas) {
+        const c0 = fila[col];
+        const c1 = String(fila[col + 1] ?? '').trim();
+        const c2 = String(fila[col + 2] ?? '').trim();
+        if (String(c0 ?? '').trim() === 'N°') {
+          if (nombre) recorridos.push({ nombre, placa, pasajeros });
+          nombre = c1; placa = c2; pasajeros = [];
+        } else if (typeof c0 === 'number' && c1) {
+          pasajeros.push(c1);
+        }
+      }
+      if (nombre) recorridos.push({ nombre, placa, pasajeros });
+    }
+
+    if (!recorridos.length) return res.status(400).json({ error: 'No se encontraron recorridos en el archivo' });
+    const resultado = await db.importarRecorridos(recorridos);
     io.emit('estado_completo', await db.getEstadoTodos());
     res.json(resultado);
   } catch (err) {
