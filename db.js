@@ -130,12 +130,14 @@ module.exports = {
     const { rows: recorridos } = await pool.query(
       'SELECT * FROM recorridos WHERE activo = TRUE ORDER BY nombre'
     );
-    return Promise.all(recorridos.map(async r => {
-      const { rows: pasajeros } = await pool.query(
-        'SELECT * FROM pasajeros WHERE recorrido_id = $1 AND activo = TRUE ORDER BY orden',
-        [r.id]
-      );
-      return { ...r, pasajeros };
+    if (!recorridos.length) return [];
+    const { rows: pasajeros } = await pool.query(
+      'SELECT * FROM pasajeros WHERE recorrido_id = ANY($1) AND activo = TRUE ORDER BY orden',
+      [recorridos.map(r => r.id)]
+    );
+    return recorridos.map(r => ({
+      ...r,
+      pasajeros: pasajeros.filter(p => p.recorrido_id === r.id),
     }));
   },
 
@@ -177,7 +179,9 @@ module.exports = {
     pasajero_id = parseInt(pasajero_id);
     await pool.query(
       `INSERT INTO retiros (sesion_id, pasajero_id, hora, tipo)
-       VALUES ($1, $2, $3, $4) ON CONFLICT (sesion_id, pasajero_id) DO NOTHING`,
+       VALUES ($1, $2, $3, $4)
+       ON CONFLICT (sesion_id, pasajero_id)
+       DO UPDATE SET tipo = EXCLUDED.tipo, hora = EXCLUDED.hora`,
       [sesion_id, pasajero_id, hora, tipo]
     );
     const { rows: s } = await pool.query('SELECT * FROM sesiones WHERE id = $1', [sesion_id]);
@@ -223,11 +227,39 @@ module.exports = {
     return buildEstado(rows[0]);
   },
 
+  // Optimizado: 4 queries fijas en vez de 3 por recorrido
   async getEstadoTodos() {
-    const { rows } = await pool.query(
+    const hoy = fechaHoy();
+    const { rows: recorridos } = await pool.query(
       'SELECT * FROM recorridos WHERE activo = TRUE ORDER BY nombre'
     );
-    return Promise.all(rows.map(buildEstado));
+    if (!recorridos.length) return [];
+
+    const ids = recorridos.map(r => r.id);
+
+    const [{ rows: pasajeros }, { rows: sesiones }] = await Promise.all([
+      pool.query('SELECT * FROM pasajeros WHERE recorrido_id = ANY($1) AND activo = TRUE ORDER BY orden', [ids]),
+      pool.query('SELECT * FROM sesiones WHERE recorrido_id = ANY($1) AND fecha = $2', [ids, hoy]),
+    ]);
+
+    let retiros = [];
+    const sesionIds = sesiones.map(s => s.id);
+    if (sesionIds.length) {
+      const { rows } = await pool.query(
+        `SELECT r.*, p.nombre AS pasajero_nombre
+         FROM retiros r JOIN pasajeros p ON p.id = r.pasajero_id
+         WHERE r.sesion_id = ANY($1) ORDER BY r.hora NULLS LAST`,
+        [sesionIds]
+      );
+      retiros = rows.map(r => ({ ...r, tipo: r.tipo || 'recogido' }));
+    }
+
+    return recorridos.map(rec => {
+      const pasx   = pasajeros.filter(p => p.recorrido_id === rec.id);
+      const sesion = sesiones.find(s => s.recorrido_id === rec.id) || null;
+      const ret    = sesion ? retiros.filter(r => r.sesion_id === sesion.id) : [];
+      return { recorrido: rec, pasajeros: pasx, sesion, retiros: ret };
+    });
   },
 
   async marcarAviso(recorrido_id, pasajero_id, hora) {
@@ -256,25 +288,30 @@ module.exports = {
     return buildEstado(rows[0]);
   },
 
+  // Optimizado: 1 query para todos los retiros en vez de 1 por sesión
   async getHistorialChofer(codigo) {
     const { rows: rec } = await pool.query(
       'SELECT * FROM recorridos WHERE codigo = $1 AND activo = TRUE', [codigo]
     );
     if (!rec[0]) return null;
     const recorrido = rec[0];
-    const { rows: pasajeros } = await pool.query(
-      'SELECT * FROM pasajeros WHERE recorrido_id = $1 AND activo = TRUE ORDER BY orden',
-      [recorrido.id]
+
+    const [{ rows: pasajeros }, { rows: sesiones }] = await Promise.all([
+      pool.query('SELECT * FROM pasajeros WHERE recorrido_id = $1 AND activo = TRUE ORDER BY orden', [recorrido.id]),
+      pool.query('SELECT * FROM sesiones WHERE recorrido_id = $1 ORDER BY fecha DESC', [recorrido.id]),
+    ]);
+
+    if (!sesiones.length) return { recorrido, sesiones: [] };
+
+    const { rows: todosRetiros } = await pool.query(
+      'SELECT * FROM retiros WHERE sesion_id = ANY($1)',
+      [sesiones.map(s => s.id)]
     );
-    const { rows: sesiones } = await pool.query(
-      'SELECT * FROM sesiones WHERE recorrido_id = $1 ORDER BY fecha DESC',
-      [recorrido.id]
-    );
-    const sesionesDetalle = await Promise.all(sesiones.map(async sesion => {
-      const { rows: retiros } = await pool.query(
-        'SELECT * FROM retiros WHERE sesion_id = $1', [sesion.id]
-      );
-      const ret = retiros.map(r => ({ ...r, tipo: r.tipo || 'recogido' }));
+
+    const sesionesDetalle = sesiones.map(sesion => {
+      const ret = todosRetiros
+        .filter(r => r.sesion_id === sesion.id)
+        .map(r => ({ ...r, tipo: r.tipo || 'recogido' }));
       return {
         ...sesion,
         total:      pasajeros.length,
@@ -285,52 +322,62 @@ module.exports = {
           return { nombre: p.nombre, tipo: r?.tipo || 'pendiente', hora: r?.hora || null };
         }),
       };
-    }));
+    });
     return { recorrido, sesiones: sesionesDetalle };
   },
 
+  // Optimizado: 4 queries fijas en vez de 4 por recorrido
   async generarReporte(fecha) {
     fecha = fecha || fechaHoy();
     const { rows: recorridos } = await pool.query(
       'SELECT * FROM recorridos WHERE activo = TRUE ORDER BY nombre'
     );
-    const recorridosData = await Promise.all(recorridos.map(async rec => {
-      const { rows: pasajeros } = await pool.query(
-        'SELECT * FROM pasajeros WHERE recorrido_id = $1 AND activo = TRUE ORDER BY orden',
-        [rec.id]
+
+    const generado = new Date().toLocaleTimeString('es-PE', {
+      hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false, timeZone: TZ,
+    });
+
+    if (!recorridos.length) return { fecha, generado, recorridos: [] };
+
+    const ids = recorridos.map(r => r.id);
+
+    const [{ rows: pasajeros }, { rows: sesiones }] = await Promise.all([
+      pool.query('SELECT * FROM pasajeros WHERE recorrido_id = ANY($1) AND activo = TRUE ORDER BY orden', [ids]),
+      pool.query('SELECT * FROM sesiones WHERE recorrido_id = ANY($1) AND fecha = $2', [ids, fecha]),
+    ]);
+
+    let retiros = [];
+    const sesionIds = sesiones.map(s => s.id);
+    if (sesionIds.length) {
+      const { rows } = await pool.query(
+        'SELECT * FROM retiros WHERE sesion_id = ANY($1)',
+        [sesionIds]
       );
-      const { rows: ses } = await pool.query(
-        'SELECT * FROM sesiones WHERE recorrido_id = $1 AND fecha = $2', [rec.id, fecha]
-      );
-      const sesion = ses[0] || null;
-      let retiros = [];
-      if (sesion) {
-        const { rows } = await pool.query('SELECT * FROM retiros WHERE sesion_id = $1', [sesion.id]);
-        retiros = rows.map(r => ({ ...r, tipo: r.tipo || 'recogido' }));
-      }
+      retiros = rows.map(r => ({ ...r, tipo: r.tipo || 'recogido' }));
+    }
+
+    const recorridosData = recorridos.map(rec => {
+      const pasx   = pasajeros.filter(p => p.recorrido_id === rec.id);
+      const sesion = sesiones.find(s => s.recorrido_id === rec.id) || null;
+      const ret    = sesion ? retiros.filter(r => r.sesion_id === sesion.id) : [];
       return {
         nombre:          rec.nombre,
         placa:           rec.codigo,
         estado:          sesion?.estado || 'pendiente',
         hora_inicio:     sesion?.hora_inicio  || null,
         hora_llegada:    sesion?.hora_llegada || null,
-        total_pasajeros: pasajeros.length,
-        recogidos:       retiros.filter(r => r.tipo === 'recogido').length,
-        no_estaban:      retiros.filter(r => r.tipo === 'no_estaba').length,
-        avisaron:        retiros.filter(r => r.tipo === 'aviso').length,
-        detalle: pasajeros.map(p => {
-          const r = retiros.find(x => x.pasajero_id === p.id);
+        total_pasajeros: pasx.length,
+        recogidos:       ret.filter(r => r.tipo === 'recogido').length,
+        no_estaban:      ret.filter(r => r.tipo === 'no_estaba').length,
+        avisaron:        ret.filter(r => r.tipo === 'aviso').length,
+        detalle: pasx.map(p => {
+          const r = ret.find(x => x.pasajero_id === p.id);
           return { nombre: p.nombre, tipo: r?.tipo || 'pendiente', hora: r?.hora || null };
         }),
       };
-    }));
-    return {
-      fecha,
-      generado: new Date().toLocaleTimeString('es-PE', {
-        hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false, timeZone: TZ,
-      }),
-      recorridos: recorridosData,
-    };
+    });
+
+    return { fecha, generado, recorridos: recorridosData };
   },
 
   async guardarReporte(fecha) {

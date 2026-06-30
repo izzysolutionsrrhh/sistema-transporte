@@ -527,9 +527,10 @@
   // Reloj y fecha
   function actualizarReloj() {
     const ahora = new Date();
-    document.getElementById('reloj').textContent = ahora.toLocaleTimeString('es-AR', { hour12: false });
-    document.getElementById('fecha-hoy').textContent = ahora.toLocaleDateString('es-AR', {
-      weekday: 'long', day: 'numeric', month: 'long'
+    const tz = 'America/Lima';
+    document.getElementById('reloj').textContent = ahora.toLocaleTimeString('es-PE', { hour12: false, timeZone: tz });
+    document.getElementById('fecha-hoy').textContent = ahora.toLocaleDateString('es-PE', {
+      weekday: 'long', day: 'numeric', month: 'long', timeZone: tz,
     });
   }
   actualizarReloj();

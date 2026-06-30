@@ -28,7 +28,60 @@
       min-height: 100dvh;
     }
 
-    /* ── PANTALLA CÓDIGO ─────────────────────────── */
+    /* ── BANNER OFFLINE ──────────────────────────────── */
+    #banner-offline {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      background: #dc2626;
+      color: white;
+      text-align: center;
+      padding: 10px 16px;
+      font-size: 14px;
+      font-weight: 700;
+      z-index: 200;
+    }
+
+    /* ── MODAL ───────────────────────────────────────── */
+    #modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.5);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+      padding: 20px;
+    }
+    #modal-box {
+      background: white;
+      border-radius: 16px;
+      padding: 24px;
+      max-width: 320px;
+      width: 100%;
+    }
+    #modal-msg {
+      font-size: 16px;
+      line-height: 1.5;
+      margin-bottom: 20px;
+      text-align: center;
+      color: var(--texto);
+    }
+    .modal-btns { display: flex; gap: 10px; }
+    .btn-modal-cancel {
+      flex: 1; padding: 14px;
+      background: var(--gris-claro); color: var(--texto);
+      border: none; border-radius: 10px;
+      font-size: 16px; font-weight: 700; cursor: pointer;
+    }
+    .btn-modal-ok {
+      flex: 1; padding: 14px;
+      background: var(--verde); color: white;
+      border: none; border-radius: 10px;
+      font-size: 16px; font-weight: 700; cursor: pointer;
+    }
+    .btn-modal-ok.rojo { background: var(--rojo); }
+
+    /* ── PANTALLA CÓDIGO ─────────────────────────────── */
     #screen-codigo {
       min-height: 100dvh;
       display: flex;
@@ -39,61 +92,29 @@
       background: white;
     }
 
-    #screen-codigo .icono {
-      font-size: 72px;
-      margin-bottom: 16px;
-    }
-
-    #screen-codigo h1 {
-      font-size: 26px;
-      font-weight: 700;
-      text-align: center;
-      margin-bottom: 8px;
-    }
-
-    #screen-codigo p {
-      color: var(--gris);
-      text-align: center;
-      margin-bottom: 32px;
-      font-size: 16px;
-    }
+    #screen-codigo .icono { font-size: 72px; margin-bottom: 16px; }
+    #screen-codigo h1 { font-size: 26px; font-weight: 700; text-align: center; margin-bottom: 8px; }
+    #screen-codigo p { color: var(--gris); text-align: center; margin-bottom: 32px; font-size: 16px; }
 
     .campo {
-      width: 100%;
-      max-width: 320px;
-      padding: 16px;
-      font-size: 24px;
-      font-weight: 700;
-      text-align: center;
-      letter-spacing: 4px;
-      border: 2px solid var(--borde);
-      border-radius: 12px;
-      outline: none;
-      text-transform: uppercase;
-      margin-bottom: 16px;
+      width: 100%; max-width: 320px;
+      padding: 16px; font-size: 24px; font-weight: 700;
+      text-align: center; letter-spacing: 4px;
+      border: 2px solid var(--borde); border-radius: 12px;
+      outline: none; text-transform: uppercase; margin-bottom: 16px;
     }
-
     .campo:focus { border-color: var(--azul); }
 
     #error-codigo {
-      color: var(--rojo);
-      font-size: 14px;
-      text-align: center;
-      min-height: 20px;
-      margin-bottom: 12px;
+      color: var(--rojo); font-size: 14px; text-align: center;
+      min-height: 20px; margin-bottom: 12px;
     }
 
-    /* ── BOTONES ──────────────────────────────────── */
+    /* ── BOTONES ──────────────────────────────────────── */
     .btn {
-      display: block;
-      width: 100%;
-      max-width: 320px;
-      padding: 18px;
-      font-size: 18px;
-      font-weight: 700;
-      border: none;
-      border-radius: 12px;
-      cursor: pointer;
+      display: block; width: 100%; max-width: 320px;
+      padding: 18px; font-size: 18px; font-weight: 700;
+      border: none; border-radius: 12px; cursor: pointer;
       transition: opacity 0.15s, transform 0.1s;
       -webkit-tap-highlight-color: transparent;
     }
@@ -104,186 +125,111 @@
     .btn-verde { background: var(--verde); color: white; }
     .btn-rojo  { background: var(--rojo); color: white; }
     .btn-rojo-outline {
-      background: transparent;
-      color: var(--rojo);
+      background: transparent; color: var(--rojo);
       border: 2px solid var(--rojo);
     }
 
-    /* ── PANTALLA RECORRIDO ───────────────────────── */
+    /* ── PANTALLA RECORRIDO ───────────────────────────── */
     #screen-recorrido { display: none; flex-direction: column; min-height: 100dvh; }
 
     header.top {
-      background: white;
-      padding: 16px 20px 12px;
+      background: white; padding: 16px 20px 12px;
       border-bottom: 1px solid var(--borde);
-      position: sticky;
-      top: 0;
-      z-index: 10;
+      position: sticky; top: 0; z-index: 10;
     }
 
     .header-row {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 8px;
+      display: flex; align-items: center;
+      justify-content: space-between; gap: 8px;
     }
 
-    #nombre-recorrido {
-      font-size: 20px;
-      font-weight: 700;
-      flex: 1;
-    }
+    #nombre-recorrido { font-size: 20px; font-weight: 700; flex: 1; }
 
     .badge {
-      font-size: 12px;
-      font-weight: 700;
-      padding: 4px 10px;
-      border-radius: 20px;
-      white-space: nowrap;
-      flex-shrink: 0;
+      font-size: 12px; font-weight: 700; padding: 4px 10px;
+      border-radius: 20px; white-space: nowrap; flex-shrink: 0;
     }
     .badge-pendiente    { background: #f1f5f9; color: var(--gris); }
     .badge-en_recorrido { background: #fef3c7; color: #92400e; }
     .badge-completado   { background: #dcfce7; color: #14532d; }
     .badge-no_asistio   { background: #fee2e2; color: #991b1b; }
 
-    #progreso-texto {
-      font-size: 14px;
-      color: var(--gris);
-      margin-top: 6px;
-    }
+    #progreso-texto { font-size: 14px; color: var(--gris); margin-top: 6px; }
 
     .barra-outer {
-      height: 6px;
-      background: var(--borde);
-      border-radius: 4px;
-      margin-top: 6px;
-      overflow: hidden;
+      height: 6px; background: var(--borde);
+      border-radius: 4px; margin-top: 6px; overflow: hidden;
     }
-
     #barra-progreso {
-      height: 100%;
-      background: var(--verde);
-      border-radius: 4px;
-      transition: width 0.4s ease;
-      width: 0%;
+      height: 100%; background: var(--verde);
+      border-radius: 4px; transition: width 0.4s ease; width: 0%;
     }
 
-    /* ── CUERPO SCROLL ────────────────────────────── */
-    .cuerpo {
-      flex: 1;
-      overflow-y: auto;
-      padding: 16px;
-      padding-bottom: 100px;
-    }
+    /* ── CUERPO SCROLL ────────────────────────────────── */
+    .cuerpo { flex: 1; overflow-y: auto; padding: 16px; padding-bottom: 100px; }
 
-    /* ── ACCIONES DE INICIO ───────────────────────── */
+    /* ── ACCIONES DE INICIO ───────────────────────────── */
     #bloque-inicio {
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-      align-items: center;
-      margin-bottom: 24px;
+      display: flex; flex-direction: column; gap: 12px;
+      align-items: center; margin-bottom: 24px;
     }
 
-    /* ── LISTA PASAJEROS ──────────────────────────── */
+    /* ── LISTA PASAJEROS ──────────────────────────────── */
     #lista-pasajeros { list-style: none; display: flex; flex-direction: column; gap: 10px; }
 
     .item-pasajero {
-      background: white;
-      border-radius: 12px;
-      padding: 14px 16px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 12px;
-      border: 2px solid var(--borde);
-      transition: border-color 0.2s;
+      background: white; border-radius: 12px; padding: 14px 16px;
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 12px; border: 2px solid var(--borde); transition: border-color 0.2s;
     }
-
-    .item-pasajero.recogido {
-      border-color: var(--verde);
-      background: var(--verde-claro);
-    }
-
-    .item-pasajero.no-estaba {
-      border-color: var(--rojo);
-      background: var(--rojo-claro);
-    }
-
-    .item-pasajero.aviso {
-      border-color: #7c3aed;
-      background: #f5f3ff;
-      opacity: 0.85;
-    }
+    .item-pasajero.recogido { border-color: var(--verde); background: var(--verde-claro); }
+    .item-pasajero.no-estaba { border-color: var(--rojo); background: var(--rojo-claro); }
+    .item-pasajero.aviso { border-color: #7c3aed; background: #f5f3ff; opacity: 0.85; }
 
     .pasajero-info { flex: 1; min-width: 0; }
 
     .pasajero-nombre {
-      font-size: 18px;
-      font-weight: 600;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
+      font-size: 18px; font-weight: 600;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     }
 
-    .pasajero-hora {
-      font-size: 13px;
-      color: var(--verde);
-      font-weight: 600;
-      margin-top: 2px;
-    }
+    .pasajero-sublinea { font-size: 12px; font-weight: 600; margin-top: 2px; }
 
-    .acciones-pasajero {
-      display: flex;
-      gap: 6px;
-      flex-shrink: 0;
-    }
+    .acciones-pasajero { display: flex; gap: 6px; flex-shrink: 0; }
 
+    /* Botones de marcado — siempre en outline; .sel = seleccionado/relleno */
     .btn-marcar {
-      padding: 10px 14px;
-      font-size: 14px;
-      font-weight: 700;
-      border: none;
-      border-radius: 8px;
-      cursor: pointer;
+      padding: 10px 16px; font-size: 18px; font-weight: 700;
+      border: 2px solid; border-radius: 8px; cursor: pointer;
       -webkit-tap-highlight-color: transparent;
       transition: opacity 0.15s, transform 0.1s;
+      background: transparent;
     }
-    .btn-marcar:active { transform: scale(0.96); opacity: 0.85; }
-    .btn-marcar:disabled { opacity: 0.4; }
-    .btn-marcar.recogido  { background: var(--verde); color: white; }
-    .btn-marcar.no-estaba { background: var(--rojo-claro); color: var(--rojo); border: 2px solid var(--rojo); }
-    .btn-marcar.aviso     { background: #f5f3ff; color: #7c3aed; border: 2px solid #7c3aed; }
+    .btn-marcar:active { transform: scale(0.93); opacity: 0.8; }
 
-    .resultado-pasajero {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      flex-shrink: 0;
-    }
+    .btn-marcar.recogido  { color: var(--verde); border-color: var(--verde); }
+    .btn-marcar.no-estaba { color: var(--rojo);  border-color: var(--rojo); }
+    .btn-marcar.aviso     { color: #7c3aed;       border-color: #7c3aed; }
+
+    .btn-marcar.recogido.sel  { background: var(--verde); color: white; }
+    .btn-marcar.no-estaba.sel { background: var(--rojo);  color: white; }
+    .btn-marcar.aviso.sel     { background: #7c3aed;       color: white; }
+
+    .resultado-pasajero { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
     .resultado-pasajero .icono-resultado { font-size: 22px; }
     .resultado-pasajero .hora-resultado  { font-size: 12px; color: var(--gris); }
 
-    /* ── FOOTER FIJO ──────────────────────────────── */
+    /* ── FOOTER FIJO ──────────────────────────────────── */
     .footer-fijo {
-      position: fixed;
-      bottom: 0;
-      left: 0;
-      right: 0;
-      background: white;
-      border-top: 1px solid var(--borde);
+      position: fixed; bottom: 0; left: 0; right: 0;
+      background: white; border-top: 1px solid var(--borde);
       padding: 12px 20px 20px;
     }
 
-    /* ── MENSAJE ESTADO ───────────────────────────── */
+    /* ── MENSAJE ESTADO ───────────────────────────────── */
     .mensaje-estado {
-      background: white;
-      border-radius: 12px;
-      padding: 20px;
-      text-align: center;
-      border: 2px solid var(--borde);
-      margin-bottom: 16px;
+      background: white; border-radius: 12px; padding: 20px;
+      text-align: center; border: 2px solid var(--borde); margin-bottom: 16px;
     }
     .mensaje-estado .estado-icono { font-size: 48px; margin-bottom: 8px; }
     .mensaje-estado h3 { font-size: 20px; margin-bottom: 4px; }
@@ -291,69 +237,55 @@
 
     .hidden { display: none !important; }
 
-    /* ── BARRA ACCIONES HEADER ────────────────────────── */
-    .header-acciones {
-      display: flex;
-      justify-content: space-between;
-      margin-top: 10px;
-    }
+    /* ── BARRA ACCIONES HEADER ──────────────────────────── */
+    .header-acciones { display: flex; justify-content: space-between; margin-top: 10px; }
 
     .btn-header-sm {
-      background: none;
-      border: none;
-      font-size: 13px;
-      font-weight: 700;
-      color: var(--azul);
-      cursor: pointer;
-      padding: 2px 0;
+      background: none; border: none; font-size: 13px; font-weight: 700;
+      color: var(--azul); cursor: pointer; padding: 2px 0;
       -webkit-tap-highlight-color: transparent;
     }
     .btn-header-sm.rojo { color: var(--rojo); }
 
-    /* ── PANTALLA HISTORIAL ───────────────────────────── */
+    /* ── PANTALLA HISTORIAL ───────────────────────────────── */
     #screen-historial { display: none; flex-direction: column; min-height: 100dvh; }
 
     .sesion-card {
-      background: white;
-      border-radius: 12px;
-      border: 2px solid var(--borde);
-      margin-bottom: 12px;
-      overflow: hidden;
+      background: white; border-radius: 12px; border: 2px solid var(--borde);
+      margin-bottom: 12px; overflow: hidden;
     }
-
     .sesion-card-header {
-      padding: 14px 16px;
-      display: flex;
-      justify-content: space-between;
-      align-items: flex-start;
-      cursor: pointer;
-      user-select: none;
+      padding: 14px 16px; display: flex; justify-content: space-between;
+      align-items: flex-start; cursor: pointer; user-select: none;
       -webkit-tap-highlight-color: transparent;
     }
-
     .sesion-fecha  { font-size: 16px; font-weight: 700; }
     .sesion-stats  { font-size: 13px; color: var(--gris); margin-top: 3px; }
     .sesion-badge  { font-size: 12px; font-weight: 700; padding: 3px 10px; border-radius: 20px; flex-shrink: 0; }
-
-    .sesion-detalle {
-      display: none;
-      border-top: 1px solid var(--borde);
-      padding: 10px 16px;
-    }
+    .sesion-detalle { display: none; border-top: 1px solid var(--borde); padding: 10px 16px; }
     .sesion-detalle.abierto { display: block; }
-
     .sesion-pasajero-row {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 7px 0;
-      font-size: 14px;
-      border-bottom: 1px solid var(--borde);
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 7px 0; font-size: 14px; border-bottom: 1px solid var(--borde);
     }
     .sesion-pasajero-row:last-child { border-bottom: none; }
   </style>
 </head>
 <body>
+
+<!-- Banner offline (hidden by default) -->
+<div id="banner-offline" class="hidden">⚠️ Sin conexión — los cambios no se están guardando</div>
+
+<!-- Modal de confirmación -->
+<div id="modal-overlay" class="hidden">
+  <div id="modal-box">
+    <p id="modal-msg"></p>
+    <div class="modal-btns">
+      <button class="btn-modal-cancel" id="modal-cancelar">Cancelar</button>
+      <button class="btn-modal-ok" id="modal-ok">Confirmar</button>
+    </div>
+  </div>
+</div>
 
 <!-- ─── PANTALLA 1: CÓDIGO ─────────────────────────────────── -->
 <div id="screen-codigo">
@@ -382,20 +314,14 @@
   </header>
 
   <div class="cuerpo">
-    <!-- Acciones de inicio (visible solo si pendiente) -->
     <div id="bloque-inicio">
       <button id="btn-iniciar" class="btn btn-verde">Iniciar Recorrido</button>
       <button id="btn-no-asistir" class="btn btn-rojo-outline">No voy a asistir hoy</button>
     </div>
-
-    <!-- Mensaje cuando ya completó o no asistió -->
     <div id="bloque-mensaje" class="hidden"></div>
-
-    <!-- Lista de pasajeros -->
     <ul id="lista-pasajeros"></ul>
   </div>
 
-  <!-- Botón de llegada (fijo abajo, visible solo en_recorrido) -->
   <div class="footer-fijo hidden" id="footer-llegada">
     <button id="btn-llegar" class="btn btn-verde">✅ Llegué a la Oficina</button>
   </div>
@@ -421,6 +347,48 @@
   let estado = null;
 
   const $ = id => document.getElementById(id);
+
+  // ── MODAL ───────────────────────────────────────────────────
+  let _modalCb = null;
+
+  function confirmar(msg, onSi, { esRojo = false } = {}) {
+    $('modal-msg').textContent = msg;
+    $('modal-ok').className = `btn-modal-ok${esRojo ? ' rojo' : ''}`;
+    _modalCb = onSi;
+    $('modal-overlay').classList.remove('hidden');
+  }
+
+  function cerrarModal() {
+    $('modal-overlay').classList.add('hidden');
+    _modalCb = null;
+  }
+
+  $('modal-cancelar').addEventListener('click', cerrarModal);
+  $('modal-ok').addEventListener('click', () => {
+    const cb = _modalCb;
+    cerrarModal();
+    if (cb) cb();
+  });
+
+  // ── OFFLINE / RECONEXIÓN ────────────────────────────────────
+  let _huboDesconexion = false;
+
+  socket.on('disconnect', () => {
+    _huboDesconexion = true;
+    $('banner-offline').classList.remove('hidden');
+  });
+
+  socket.on('connect', async () => {
+    if (!_huboDesconexion) return;
+    $('banner-offline').classList.add('hidden');
+    if (estado) {
+      socket.emit('join_recorrido', { codigo: estado.recorrido.codigo });
+      try {
+        const res = await fetch(`/api/recorrido/${estado.recorrido.codigo}`);
+        if (res.ok) { estado = await res.json(); renderizarEstado(); }
+      } catch {}
+    }
+  });
 
   // ── PANTALLA DE CÓDIGO ──────────────────────────────────────
   $('input-codigo').addEventListener('keydown', e => {
@@ -471,7 +439,6 @@
 
     $('nombre-recorrido').textContent = recorrido.nombre;
 
-    // Badge de estado
     const badgeTextos = {
       pendiente:    'Pendiente',
       en_recorrido: 'En Recorrido',
@@ -482,23 +449,21 @@
     badge.textContent = badgeTextos[estadoSesion] || 'Pendiente';
     badge.className = `badge badge-${estadoSesion}`;
 
-    // Progreso
     const recogidos  = retiros.filter(r => r.tipo === 'recogido').length;
     const noEstaban  = retiros.filter(r => r.tipo === 'no_estaba').length;
     const avisos     = retiros.filter(r => r.tipo === 'aviso').length;
     const procesados = retiros.length;
     const total = pasajeros.length;
     const partes = [];
-    if (recogidos)  partes.push(`${recogidos} recogido${recogidos !== 1 ? 's' : ''}`);
-    if (noEstaban)  partes.push(`${noEstaban} no estaba${noEstaban !== 1 ? 'n' : ''}`);
-    if (avisos)     partes.push(`${avisos} avisó que no va`);
+    if (recogidos) partes.push(`${recogidos} recogido${recogidos !== 1 ? 's' : ''}`);
+    if (noEstaban) partes.push(`${noEstaban} no estaba${noEstaban !== 1 ? 'n' : ''}`);
+    if (avisos)    partes.push(`${avisos} avisó que no va`);
     $('progreso-texto').textContent = partes.length
       ? `${partes.join(', ')} de ${total}`
       : `0 de ${total} persona${total !== 1 ? 's' : ''}`;
     $('barra-progreso').style.width = total ? `${(procesados / total) * 100}%` : '0%';
 
-    // Bloques visibles según estado
-    const bloqueInicio = $('bloque-inicio');
+    const bloqueInicio  = $('bloque-inicio');
     const bloqueMensaje = $('bloque-mensaje');
     const footerLlegada = $('footer-llegada');
 
@@ -517,7 +482,7 @@
           <div class="estado-icono">🎉</div>
           <h3>¡Llegaste a la oficina!</h3>
           <p>Hora de llegada: <strong>${sesion.hora_llegada}</strong></p>
-          <p style="margin-top:4px">${totalRetirados} persona${totalRetirados !== 1 ? 's' : ''} traída${totalRetirados !== 1 ? 's' : ''}</p>
+          <p style="margin-top:4px">${recogidos} persona${recogidos !== 1 ? 's' : ''} traída${recogidos !== 1 ? 's' : ''}</p>
         </div>`;
     } else if (estadoSesion === 'no_asistio') {
       bloqueMensaje.classList.remove('hidden');
@@ -535,19 +500,26 @@
     const marcados = {};
     retiros.forEach(r => { marcados[r.pasajero_id] = r; });
 
+    const enRecorrido = estadoSesion === 'en_recorrido';
+
     pasajeros.forEach(p => {
-      const marcado = marcados[p.id];
-      const esRecogido  = marcado?.tipo === 'recogido';
-      const esNoEstaba  = marcado?.tipo === 'no_estaba';
-      const esAviso     = marcado?.tipo === 'aviso';
+      const marcado   = marcados[p.id];
+      const esRecogido = marcado?.tipo === 'recogido';
+      const esNoEstaba = marcado?.tipo === 'no_estaba';
+      const esAviso    = marcado?.tipo === 'aviso';
 
       const li = document.createElement('li');
       li.className = `item-pasajero${esRecogido ? ' recogido' : esNoEstaba ? ' no-estaba' : esAviso ? ' aviso' : ''}`;
 
-      const puedeMarcar = estadoSesion === 'en_recorrido' && !marcado;
-
       let accionHTML;
-      if (esRecogido) {
+      if (enRecorrido) {
+        // Siempre mostrar los 3 botones; el marcado actual queda con fondo sólido (.sel)
+        accionHTML = `<div class="acciones-pasajero">
+          <button class="btn-marcar recogido${esRecogido ? ' sel' : ''}" data-id="${p.id}" data-tipo="recogido" title="Recogido">✓</button>
+          <button class="btn-marcar no-estaba${esNoEstaba ? ' sel' : ''}" data-id="${p.id}" data-tipo="no_estaba" title="No estaba">✗</button>
+          <button class="btn-marcar aviso${esAviso ? ' sel' : ''}" data-id="${p.id}" data-tipo="aviso" title="Avisó que no va">📵</button>
+        </div>`;
+      } else if (esRecogido) {
         accionHTML = `<div class="resultado-pasajero">
           <span class="icono-resultado" style="color:var(--verde)">✓</span>
           <span class="hora-resultado">${marcado.hora}</span>
@@ -563,23 +535,27 @@
           <span class="hora-resultado" style="color:#7c3aed">Avisó que no va</span>
         </div>`;
       } else {
-        accionHTML = `<div class="acciones-pasajero">
-          <button class="btn-marcar recogido" ${puedeMarcar ? '' : 'disabled'} data-id="${p.id}" data-tipo="recogido">✓ Recogido</button>
-          <button class="btn-marcar no-estaba" ${puedeMarcar ? '' : 'disabled'} data-id="${p.id}" data-tipo="no_estaba">✗ No estaba</button>
-          <button class="btn-marcar aviso" ${puedeMarcar ? '' : 'disabled'} data-id="${p.id}" data-tipo="aviso">📵 Avisó</button>
-        </div>`;
+        accionHTML = '';
       }
+
+      // Sublinea con hora/estado cuando ya está marcado durante en_recorrido
+      const colorSublinea = esRecogido ? 'var(--verde)' : esNoEstaba ? 'var(--rojo)' : '#7c3aed';
+      const textoSublinea = esRecogido ? marcado.hora : esNoEstaba ? marcado.hora : esAviso ? 'Avisó que no va' : '';
+      const sublinea = enRecorrido && marcado
+        ? `<div class="pasajero-sublinea" style="color:${colorSublinea}">${textoSublinea}</div>`
+        : '';
 
       li.innerHTML = `
         <div class="pasajero-info">
           <div class="pasajero-nombre">${esc(p.nombre)}</div>
+          ${sublinea}
         </div>
         ${accionHTML}`;
       lista.appendChild(li);
     });
 
-    if (estadoSesion === 'en_recorrido') {
-      lista.querySelectorAll('.btn-marcar:not([disabled])').forEach(btn => {
+    if (enRecorrido) {
+      lista.querySelectorAll('.btn-marcar').forEach(btn => {
         btn.addEventListener('click', () => marcarPasajero(btn.dataset.id, btn.dataset.tipo));
       });
     }
@@ -593,8 +569,10 @@
   });
 
   $('btn-no-asistir').addEventListener('click', () => {
-    if (!confirm('¿Confirmás que no vas a asistir hoy?')) return;
-    socket.emit('no_asistir', { codigo: estado.recorrido.codigo });
+    if (!estado) return;
+    confirmar('¿Confirmás que no vas a asistir hoy?', () => {
+      socket.emit('no_asistir', { codigo: estado.recorrido.codigo });
+    }, { esRojo: true });
   });
 
   $('btn-llegar').addEventListener('click', () => {
@@ -604,9 +582,10 @@
     const sinMarcar = total - estado.retiros.length;
     let msg = `¿Confirmás que llegaste a la oficina?\n${recogidos} recogido${recogidos !== 1 ? 's' : ''}`;
     if (sinMarcar > 0) msg += ` — ${sinMarcar} sin marcar`;
-    if (!confirm(msg)) return;
-    $('btn-llegar').disabled = true;
-    socket.emit('llegar_oficina', { sesion_id: estado.sesion.id, codigo: estado.recorrido.codigo });
+    confirmar(msg, () => {
+      $('btn-llegar').disabled = true;
+      socket.emit('llegar_oficina', { sesion_id: estado.sesion.id, codigo: estado.recorrido.codigo });
+    });
   });
 
   function marcarPasajero(pasajero_id, tipo) {
@@ -615,7 +594,7 @@
       sesion_id: estado.sesion.id,
       pasajero_id: parseInt(pasajero_id),
       codigo: estado.recorrido.codigo,
-      tipo
+      tipo,
     });
   }
 
@@ -638,7 +617,7 @@
     return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
   }
 
-  // ── SALIR ───────────────────────────────────────────
+  // ── SALIR ───────────────────────────────────────────────────
   function salir() {
     localStorage.removeItem('codigo');
     estado = null;
@@ -649,7 +628,7 @@
     $('error-codigo').textContent       = '';
   }
 
-  // ── HISTORIAL ───────────────────────────────────────
+  // ── HISTORIAL ───────────────────────────────────────────────
   async function verHistorial() {
     if (!estado) return;
     $('screen-recorrido').style.display = 'none';
