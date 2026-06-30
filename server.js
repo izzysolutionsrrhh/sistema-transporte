@@ -1,4 +1,5 @@
 require('dotenv').config();
+const crypto = require('crypto');
 const express = require('express');
 const { createServer } = require('http');
 const { Server } = require('socket.io');
@@ -52,7 +53,7 @@ function requireAdmin(req, res, next) {
 app.post('/api/admin/login', loginLimiter, (req, res) => {
   const { usuario, clave } = req.body;
   if (usuario === ADMIN_USER && clave === ADMIN_PASS) {
-    const token = Math.random().toString(36).slice(2) + Date.now().toString(36);
+    const token = crypto.randomBytes(32).toString('hex');
     tokens.add(token);
     return res.json({ token });
   }
@@ -208,6 +209,8 @@ app.get('/api/admin/reporte/:fecha/xlsx', requireAdmin, async (req, res) => {
 
 // ─── SOCKET.IO ───────────────────────────────────────────────────────────────
 
+const TIPOS_VALIDOS = new Set(['recogido', 'no_estaba', 'aviso']);
+
 io.on('connection', (socket) => {
   socket.on('join_dashboard', async () => {
     socket.join('dashboard');
@@ -219,35 +222,52 @@ io.on('connection', (socket) => {
   });
 
   socket.on('iniciar_recorrido', async ({ codigo }) => {
-    const estado = await db.iniciarRecorrido(codigo, hora());
-    if (!estado) return;
-    broadcastActualizacion(codigo, estado);
+    try {
+      const estado = await db.iniciarRecorrido(codigo, hora());
+      if (!estado) return;
+      broadcastActualizacion(codigo, estado);
+    } catch (err) {
+      console.error('iniciar_recorrido:', err.message);
+    }
   });
 
   socket.on('marcar_pasajero', async ({ sesion_id, pasajero_id, codigo, tipo }) => {
-    const estado = await db.marcarPasajero(sesion_id, pasajero_id, hora(), tipo);
-    if (!estado) return;
-    broadcastActualizacion(codigo, estado);
+    if (!TIPOS_VALIDOS.has(tipo)) return;
+    try {
+      const estado = await db.marcarPasajero(sesion_id, pasajero_id, hora(), tipo);
+      if (!estado) return;
+      broadcastActualizacion(codigo, estado);
+    } catch (err) {
+      console.error('marcar_pasajero:', err.message);
+    }
   });
 
   socket.on('llegar_oficina', async ({ sesion_id, codigo }) => {
-    const horaLlegada = hora();
-    const estado = await db.llegarOficina(sesion_id, horaLlegada);
-    if (!estado) return;
-    broadcastActualizacion(codigo, estado);
-    await db.guardarReporte();
-    io.to('dashboard').emit('alerta_llegada', {
-      recorrido: estado.recorrido.nombre,
-      hora: horaLlegada,
-      retirados: estado.retiros.filter(r => r.tipo === 'recogido').length,
-      total: estado.pasajeros.length,
-    });
+    try {
+      const horaLlegada = hora();
+      const estado = await db.llegarOficina(sesion_id, horaLlegada);
+      if (!estado) return;
+      broadcastActualizacion(codigo, estado);
+      await db.guardarReporte();
+      io.to('dashboard').emit('alerta_llegada', {
+        recorrido: estado.recorrido.nombre,
+        hora: horaLlegada,
+        retirados: estado.retiros.filter(r => r.tipo === 'recogido').length,
+        total: estado.pasajeros.length,
+      });
+    } catch (err) {
+      console.error('llegar_oficina:', err.message);
+    }
   });
 
   socket.on('no_asistir', async ({ codigo }) => {
-    const estado = await db.noAsistir(codigo);
-    if (!estado) return;
-    broadcastActualizacion(codigo, estado);
+    try {
+      const estado = await db.noAsistir(codigo);
+      if (!estado) return;
+      broadcastActualizacion(codigo, estado);
+    } catch (err) {
+      console.error('no_asistir:', err.message);
+    }
   });
 });
 

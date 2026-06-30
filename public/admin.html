@@ -26,156 +26,98 @@
       min-height: 100vh;
     }
 
+    .hidden { display: none !important; }
+
+    /* ── MODAL ──────────────────────────────────────────── */
+    #modal-overlay {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.5);
+      display: flex; align-items: center; justify-content: center;
+      z-index: 100; padding: 20px;
+    }
+    .modal-box {
+      background: white; border-radius: 14px; padding: 24px;
+      max-width: 360px; width: 100%;
+    }
+    .modal-box h3 { font-size: 17px; margin-bottom: 10px; }
+    .modal-box p  { font-size: 14px; color: var(--muted); margin-bottom: 20px; line-height: 1.5; }
+    .modal-btns   { display: flex; gap: 10px; }
+    .btn-modal-cancel {
+      flex: 1; padding: 12px; background: var(--bg); color: var(--texto);
+      border: 1px solid var(--borde); border-radius: 8px;
+      font-size: 15px; font-weight: 700; cursor: pointer;
+    }
+    .btn-modal-ok {
+      flex: 1; padding: 12px; background: var(--rojo); color: white;
+      border: none; border-radius: 8px;
+      font-size: 15px; font-weight: 700; cursor: pointer;
+    }
+    .btn-modal-ok:hover { opacity: 0.9; }
+
     /* ── LOGIN ──────────────────────────────────────── */
     #screen-login {
-      min-height: 100vh;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      background: #0f172a;
+      min-height: 100vh; display: flex;
+      align-items: center; justify-content: center; background: #0f172a;
     }
     .login-card {
-      background: #1e293b;
-      border: 1px solid #334155;
-      border-radius: 16px;
-      padding: 40px 36px;
-      width: 100%;
-      max-width: 380px;
+      background: #1e293b; border: 1px solid #334155; border-radius: 16px;
+      padding: 40px 36px; width: 100%; max-width: 380px;
     }
-    .login-card h2 {
-      color: #f1f5f9;
-      font-size: 22px;
-      font-weight: 700;
-      margin-bottom: 6px;
-      text-align: center;
-    }
-    .login-card p {
-      color: #94a3b8;
-      font-size: 14px;
-      text-align: center;
-      margin-bottom: 28px;
-    }
-    .login-field {
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-      margin-bottom: 16px;
-    }
+    .login-card h2 { color: #f1f5f9; font-size: 22px; font-weight: 700; margin-bottom: 6px; text-align: center; }
+    .login-card p  { color: #94a3b8; font-size: 14px; text-align: center; margin-bottom: 28px; }
+    .login-field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 16px; }
     .login-field label { color: #94a3b8; font-size: 13px; font-weight: 600; }
     .login-field input {
-      padding: 12px 14px;
-      background: #0f172a;
-      border: 1px solid #334155;
-      border-radius: 8px;
-      color: #f1f5f9;
-      font-size: 15px;
-      outline: none;
+      padding: 12px 14px; background: #0f172a; border: 1px solid #334155;
+      border-radius: 8px; color: #f1f5f9; font-size: 15px; outline: none;
     }
     .login-field input:focus { border-color: #1d4ed8; }
     .btn-login {
-      width: 100%;
-      padding: 14px;
-      background: #1d4ed8;
-      color: white;
-      font-size: 16px;
-      font-weight: 700;
-      border: none;
-      border-radius: 8px;
-      cursor: pointer;
-      margin-top: 8px;
+      width: 100%; padding: 14px; background: #1d4ed8; color: white;
+      font-size: 16px; font-weight: 700; border: none; border-radius: 8px;
+      cursor: pointer; margin-top: 8px;
     }
     .btn-login:hover { opacity: 0.9; }
     .btn-login:disabled { opacity: 0.5; cursor: not-allowed; }
-    .login-error {
-      color: #f87171;
-      font-size: 13px;
-      text-align: center;
-      min-height: 18px;
-      margin-top: 10px;
-    }
+    .login-error { color: #f87171; font-size: 13px; text-align: center; min-height: 18px; margin-top: 10px; }
 
     /* ── PANEL ADMIN ────────────────────────────────── */
     #screen-admin { display: none; }
 
     header {
-      background: #1e293b;
-      color: white;
-      padding: 16px 24px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
+      background: #1e293b; color: white; padding: 16px 24px;
+      display: flex; align-items: center; justify-content: space-between;
     }
     header h1 { font-size: 18px; font-weight: 700; }
-    header nav a {
-      color: #94a3b8;
-      text-decoration: none;
-      font-size: 14px;
-      margin-left: 20px;
-    }
+    header nav a { color: #94a3b8; text-decoration: none; font-size: 14px; margin-left: 20px; }
     header nav a:hover { color: white; }
     .btn-logout {
-      background: transparent;
-      color: #f87171;
-      border: 1px solid #f87171;
-      padding: 6px 14px;
-      font-size: 13px;
-      font-weight: 700;
-      border-radius: 6px;
-      cursor: pointer;
-      margin-left: 16px;
+      background: transparent; color: #f87171; border: 1px solid #f87171;
+      padding: 6px 14px; font-size: 13px; font-weight: 700;
+      border-radius: 6px; cursor: pointer; margin-left: 16px;
     }
     .btn-logout:hover { background: #f87171; color: white; }
 
     .container { max-width: 960px; margin: 0 auto; padding: 24px 20px; }
-
     h2 { font-size: 20px; font-weight: 700; margin-bottom: 16px; }
 
     /* ── CARDS ──────────────────────────────────────── */
-    .card {
-      background: var(--card);
-      border: 1px solid var(--borde);
-      border-radius: 12px;
-      padding: 20px;
-      margin-bottom: 20px;
-    }
-
-    .card h3 {
-      font-size: 16px;
-      font-weight: 700;
-      margin-bottom: 16px;
-      padding-bottom: 12px;
-      border-bottom: 1px solid var(--borde);
-    }
+    .card { background: var(--card); border: 1px solid var(--borde); border-radius: 12px; padding: 20px; margin-bottom: 20px; }
+    .card h3 { font-size: 16px; font-weight: 700; margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid var(--borde); }
 
     /* ── FORMULARIO ─────────────────────────────────── */
-    .form-row {
-      display: flex;
-      gap: 12px;
-      flex-wrap: wrap;
-      align-items: flex-end;
-    }
-
+    .form-row { display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end; }
     .form-group { display: flex; flex-direction: column; gap: 6px; flex: 1; min-width: 160px; }
     .form-group label { font-size: 13px; font-weight: 600; color: var(--muted); }
     .form-group input, .form-group select {
-      padding: 10px 12px;
-      border: 1px solid var(--borde);
-      border-radius: 8px;
-      font-size: 15px;
-      outline: none;
-      background: white;
+      padding: 10px 12px; border: 1px solid var(--borde); border-radius: 8px;
+      font-size: 15px; outline: none; background: white;
     }
     .form-group input:focus, .form-group select:focus { border-color: var(--azul); }
 
     .btn {
-      padding: 10px 20px;
-      font-size: 14px;
-      font-weight: 700;
-      border: none;
-      border-radius: 8px;
-      cursor: pointer;
-      transition: opacity 0.15s;
-      white-space: nowrap;
+      padding: 10px 20px; font-size: 14px; font-weight: 700; border: none;
+      border-radius: 8px; cursor: pointer; transition: opacity 0.15s; white-space: nowrap;
     }
     .btn:hover { opacity: 0.85; }
     .btn:disabled { opacity: 0.4; cursor: not-allowed; }
@@ -189,147 +131,65 @@
     .error-msg { color: var(--rojo); font-size: 13px; margin-top: 8px; min-height: 18px; }
 
     /* ── LISTA RECORRIDOS ───────────────────────────── */
-    .recorrido-bloque {
-      border: 1px solid var(--borde);
-      border-radius: 10px;
-      margin-bottom: 12px;
-      overflow: hidden;
-    }
-
+    .recorrido-bloque { border: 1px solid var(--borde); border-radius: 10px; margin-bottom: 12px; overflow: hidden; }
     .recorrido-header {
-      background: #f8fafc;
-      padding: 14px 16px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 12px;
-      cursor: pointer;
-      user-select: none;
+      background: #f8fafc; padding: 14px 16px;
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 12px; cursor: pointer; user-select: none;
     }
     .recorrido-header:hover { background: #f1f5f9; }
-
     .recorrido-info { flex: 1; }
     .recorrido-nombre { font-size: 16px; font-weight: 700; }
     .recorrido-codigo { font-size: 12px; color: var(--muted); margin-top: 2px; }
-
     .recorrido-acciones { display: flex; gap: 8px; align-items: center; }
-
-    .badge-count {
-      background: #e2e8f0;
-      color: var(--muted);
-      font-size: 12px;
-      font-weight: 700;
-      padding: 3px 10px;
-      border-radius: 20px;
-    }
-
+    .badge-count { background: #e2e8f0; color: var(--muted); font-size: 12px; font-weight: 700; padding: 3px 10px; border-radius: 20px; }
     .chevron { color: var(--muted); transition: transform 0.2s; }
     .chevron.abierto { transform: rotate(180deg); }
 
     /* ── PASAJEROS ──────────────────────────────────── */
-    .pasajeros-panel {
-      display: none;
-      padding: 16px;
-      border-top: 1px solid var(--borde);
-      background: white;
-    }
+    .pasajeros-panel { display: none; padding: 16px; border-top: 1px solid var(--borde); background: white; }
     .pasajeros-panel.abierto { display: block; }
-
-    .pasajero-item {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 8px 12px;
-      border-radius: 8px;
-      margin-bottom: 6px;
-      background: #f8fafc;
-      font-size: 15px;
-    }
-
-    .form-agregar {
-      display: flex;
-      gap: 8px;
-      margin-top: 12px;
-      padding-top: 12px;
-      border-top: 1px solid var(--borde);
-    }
-
-    .form-agregar input {
-      flex: 1;
-      padding: 8px 12px;
-      border: 1px solid var(--borde);
-      border-radius: 8px;
-      font-size: 14px;
-      outline: none;
-    }
+    .pasajero-item { display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; border-radius: 8px; margin-bottom: 6px; background: #f8fafc; font-size: 15px; }
+    .form-agregar { display: flex; gap: 8px; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--borde); }
+    .form-agregar input { flex: 1; padding: 8px 12px; border: 1px solid var(--borde); border-radius: 8px; font-size: 14px; outline: none; }
     .form-agregar input:focus { border-color: var(--azul); }
-
     .vacío { color: var(--muted); font-size: 14px; padding: 8px 0; }
 
-    /* ── RESET SESSION ──────────────────────────────── */
-    .reset-info { font-size: 12px; color: var(--muted); margin-top: 4px; }
-
     /* ── AVISO ──────────────────────────────────────── */
-    .btn-aviso-sm {
-      background: transparent;
-      color: #7c3aed;
-      border: 1px solid #7c3aed;
-      padding: 5px 10px;
-      font-size: 12px;
-      border-radius: 6px;
-      cursor: pointer;
-      white-space: nowrap;
-    }
+    .btn-aviso-sm { background: transparent; color: #7c3aed; border: 1px solid #7c3aed; padding: 5px 10px; font-size: 12px; border-radius: 6px; cursor: pointer; white-space: nowrap; }
     .btn-aviso-sm:hover { background: #7c3aed; color: white; }
     .texto-aviso { color: #7c3aed; font-size: 12px; font-weight: 700; }
 
     /* ── REPORTES ───────────────────────────────────── */
-    .reporte-item {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 10px 14px;
-      background: #f8fafc;
-      border-radius: 8px;
-      margin-bottom: 8px;
-      font-size: 14px;
-    }
+    .reporte-item { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; background: #f8fafc; border-radius: 8px; margin-bottom: 8px; font-size: 14px; }
     .reporte-item .reporte-fecha { font-weight: 700; }
-    .reporte-item .reporte-meta  { color: var(--muted); font-size: 12px; margin-top: 2px; }
-    .btn-csv {
-      background: #16a34a;
-      color: white;
-      padding: 6px 14px;
-      font-size: 13px;
-      font-weight: 700;
-      border: none;
-      border-radius: 6px;
-      cursor: pointer;
-      text-decoration: none;
-      display: inline-block;
-    }
+    .btn-csv { background: #16a34a; color: white; padding: 6px 14px; font-size: 13px; font-weight: 700; border: none; border-radius: 6px; cursor: pointer; text-decoration: none; display: inline-block; }
     .btn-csv:hover { opacity: 0.85; }
 
     /* ── TOAST ──────────────────────────────────────── */
     #toast {
-      position: fixed;
-      bottom: 24px;
-      right: 24px;
-      background: #1e293b;
-      color: white;
-      padding: 12px 20px;
-      border-radius: 8px;
-      font-size: 14px;
-      font-weight: 600;
-      transform: translateY(80px);
-      opacity: 0;
-      transition: transform 0.3s, opacity 0.3s;
-      z-index: 999;
+      position: fixed; bottom: 24px; right: 24px;
+      background: #1e293b; color: white; padding: 12px 20px;
+      border-radius: 8px; font-size: 14px; font-weight: 600;
+      transform: translateY(80px); opacity: 0;
+      transition: transform 0.3s, opacity 0.3s; z-index: 999;
     }
     #toast.visible { transform: translateY(0); opacity: 1; }
   </style>
 </head>
 <body>
+
+<!-- ── MODAL ─────────────────────────────────────────────────── -->
+<div id="modal-overlay" class="hidden" onclick="if(event.target===this)cerrarModal()">
+  <div class="modal-box">
+    <h3 id="modal-titulo"></h3>
+    <p id="modal-msg"></p>
+    <div class="modal-btns">
+      <button class="btn-modal-cancel" onclick="cerrarModal()">Cancelar</button>
+      <button class="btn-modal-ok" id="modal-ok">Confirmar</button>
+    </div>
+  </div>
+</div>
 
 <!-- ── LOGIN ─────────────────────────────────────────────── -->
 <div id="screen-login">
@@ -374,7 +234,7 @@
     </p>
     <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
       <input id="input-importar" type="file" accept=".xlsx" style="font-size:14px;flex:1;min-width:0">
-      <button class="btn-primario" onclick="importarExcel()" style="white-space:nowrap">📥 Importar</button>
+      <button class="btn btn-azul" onclick="importarExcel()" style="white-space:nowrap">📥 Importar</button>
     </div>
     <div id="resultado-importar" style="margin-top:12px;font-size:14px;display:none"></div>
   </div>
@@ -399,9 +259,7 @@
   <!-- Lista de recorridos -->
   <div class="card">
     <h3>🚌 Recorridos Configurados</h3>
-    <div id="lista-recorridos">
-      <div class="vacío">Cargando...</div>
-    </div>
+    <div id="lista-recorridos"><div class="vacío">Cargando...</div></div>
   </div>
 
   <!-- Estado del día -->
@@ -456,9 +314,47 @@
   let adminToken = sessionStorage.getItem('adminToken') || '';
   let recorridos = [];
 
+  // ── MODAL ──────────────────────────────────────────
+  let _modalCb = null;
+
+  function confirmar(titulo, msg, onSi) {
+    document.getElementById('modal-titulo').textContent = titulo;
+    document.getElementById('modal-msg').textContent = msg;
+    _modalCb = onSi;
+    document.getElementById('modal-overlay').classList.remove('hidden');
+  }
+
+  function cerrarModal() {
+    document.getElementById('modal-overlay').classList.add('hidden');
+    _modalCb = null;
+  }
+
+  document.getElementById('modal-ok').addEventListener('click', () => {
+    const cb = _modalCb;
+    cerrarModal();
+    if (cb) cb();
+  });
+
   // ── AUTH ──────────────────────────────────────────
   function adminHeaders(extra) {
     return { 'Content-Type': 'application/json', 'x-admin-token': adminToken, ...extra };
+  }
+
+  // Wrapper que detecta 401 y fuerza re-login
+  async function adminFetch(url, opts = {}) {
+    const res = await fetch(url, {
+      headers: { 'Content-Type': 'application/json', 'x-admin-token': adminToken },
+      ...opts,
+    });
+    if (res.status === 401) {
+      sessionStorage.removeItem('adminToken');
+      adminToken = '';
+      document.getElementById('screen-admin').style.display = 'none';
+      document.getElementById('screen-login').style.display = 'flex';
+      document.getElementById('login-error').textContent = 'Tu sesión expiró. Iniciá sesión nuevamente.';
+      return null;
+    }
+    return res;
   }
 
   async function doLogin() {
@@ -495,12 +391,6 @@
     document.getElementById('login-error').textContent = '';
   }
 
-  async function verificarToken() {
-    if (!adminToken) return false;
-    const res = await fetch('/api/admin/recorridos', { headers: adminHeaders() });
-    return res.ok;
-  }
-
   function mostrarAdmin() {
     document.getElementById('screen-login').style.display = 'none';
     document.getElementById('screen-admin').style.display = 'block';
@@ -512,17 +402,15 @@
 
   // Verificar sesión al cargar
   (async () => {
-    if (adminToken && await verificarToken()) {
-      mostrarAdmin();
-    } else {
-      sessionStorage.removeItem('adminToken');
-      adminToken = '';
-    }
+    if (!adminToken) return;
+    const res = await adminFetch('/api/admin/recorridos');
+    if (res?.ok) mostrarAdmin();
   })();
 
   // ── RECORRIDOS ────────────────────────────────────
   async function cargarRecorridos() {
-    const res = await fetch('/api/admin/recorridos', { headers: adminHeaders() });
+    const res = await adminFetch('/api/admin/recorridos');
+    if (!res) return;
     recorridos = await res.json();
     renderizarRecorridos();
     actualizarSelectReset();
@@ -576,7 +464,7 @@
   }
 
   function togglePanel(recorrido_id) {
-    const panel = document.getElementById(`panel-${recorrido_id}`);
+    const panel   = document.getElementById(`panel-${recorrido_id}`);
     const chevron = document.getElementById(`chevron-${recorrido_id}`);
     panel.classList.toggle('abierto');
     chevron.classList.toggle('abierto');
@@ -585,18 +473,14 @@
   async function crearRecorrido() {
     const nombre = document.getElementById('nuevo-nombre').value.trim();
     const codigo = document.getElementById('nuevo-codigo').value.trim().toUpperCase();
-    const err = document.getElementById('error-crear');
+    const err    = document.getElementById('error-crear');
+    if (!nombre || !codigo) { err.textContent = 'Completá el nombre y el código'; return; }
 
-    if (!nombre || !codigo) {
-      err.textContent = 'Completá el nombre y el código';
-      return;
-    }
-
-    const res = await fetch('/api/admin/recorrido', {
+    const res = await adminFetch('/api/admin/recorrido', {
       method: 'POST',
-      headers: adminHeaders(),
-      body: JSON.stringify({ nombre, codigo })
+      body: JSON.stringify({ nombre, codigo }),
     });
+    if (!res) return;
 
     if (!res.ok) {
       const data = await res.json();
@@ -613,29 +497,33 @@
 
   async function eliminarRecorrido(id) {
     const r = recorridos.find(x => x.id === id);
-    if (!confirm(`¿Eliminar el recorrido "${r?.nombre}"? Esta acción no se puede deshacer.`)) return;
-    await fetch(`/api/admin/recorrido/${id}`, { method: 'DELETE', headers: adminHeaders() });
-    toast('Recorrido eliminado');
-    await cargarRecorridos();
+    confirmar(
+      'Eliminar recorrido',
+      `¿Eliminar "${r?.nombre}"? Esta acción no se puede deshacer.`,
+      async () => {
+        const res = await adminFetch(`/api/admin/recorrido/${id}`, { method: 'DELETE' });
+        if (!res) return;
+        toast('Recorrido eliminado');
+        await cargarRecorridos();
+      }
+    );
   }
 
   async function agregarPasajero(recorrido_id) {
-    const input = document.getElementById(`nuevo-pasajero-${recorrido_id}`);
+    const input  = document.getElementById(`nuevo-pasajero-${recorrido_id}`);
     const nombre = input.value.trim();
     if (!nombre) return;
 
-    const res = await fetch('/api/admin/pasajero', {
+    const res = await adminFetch('/api/admin/pasajero', {
       method: 'POST',
-      headers: adminHeaders(),
-      body: JSON.stringify({ nombre, recorrido_id })
+      body: JSON.stringify({ nombre, recorrido_id }),
     });
+    if (!res || !res.ok) return;
 
-    if (!res.ok) return;
     input.value = '';
     toast(`${nombre} agregado`);
     await cargarRecorridos();
 
-    // Reabrir el panel si estaba abierto
     const panel = document.getElementById(`panel-${recorrido_id}`);
     if (!panel.classList.contains('abierto')) togglePanel(recorrido_id);
   }
@@ -643,15 +531,21 @@
   async function eliminarPasajero(id, recorrido_id) {
     const r = recorridos.find(x => x.id === recorrido_id);
     const p = r?.pasajeros.find(x => x.id === id);
-    if (!confirm(`¿Quitar a "${p?.nombre}" del recorrido?`)) return;
-    await fetch(`/api/admin/pasajero/${id}`, { method: 'DELETE', headers: adminHeaders() });
-    toast('Persona eliminada');
-    const estabaAbierto = document.getElementById(`panel-${recorrido_id}`)?.classList.contains('abierto');
-    await cargarRecorridos();
-    if (estabaAbierto) {
-      const panel = document.getElementById(`panel-${recorrido_id}`);
-      if (panel && !panel.classList.contains('abierto')) togglePanel(recorrido_id);
-    }
+    confirmar(
+      'Quitar persona',
+      `¿Quitar a "${p?.nombre}" del recorrido?`,
+      async () => {
+        const estabaAbierto = document.getElementById(`panel-${recorrido_id}`)?.classList.contains('abierto');
+        const res = await adminFetch(`/api/admin/pasajero/${id}`, { method: 'DELETE' });
+        if (!res) return;
+        toast('Persona eliminada');
+        await cargarRecorridos();
+        if (estabaAbierto) {
+          const panel = document.getElementById(`panel-${recorrido_id}`);
+          if (panel && !panel.classList.contains('abierto')) togglePanel(recorrido_id);
+        }
+      }
+    );
   }
 
   function actualizarSelectReset() {
@@ -667,15 +561,20 @@
 
   async function resetSesion() {
     const recorrido_id = document.getElementById('select-reset').value;
-    if (!recorrido_id) { alert('Seleccioná un recorrido'); return; }
+    if (!recorrido_id) { toast('Seleccioná un recorrido'); return; }
     const r = recorridos.find(x => x.id == recorrido_id);
-    if (!confirm(`¿Reiniciar la sesión de hoy para "${r?.nombre}"? Se borrarán todos los registros de hoy.`)) return;
-    await fetch('/api/admin/reset', {
-      method: 'POST',
-      headers: adminHeaders(),
-      body: JSON.stringify({ recorrido_id: parseInt(recorrido_id) })
-    });
-    toast('Sesión reiniciada');
+    confirmar(
+      'Reiniciar sesión',
+      `¿Reiniciar la sesión de hoy para "${r?.nombre}"? Se borrarán todos los registros de hoy.`,
+      async () => {
+        const res = await adminFetch('/api/admin/reset', {
+          method: 'POST',
+          body: JSON.stringify({ recorrido_id: parseInt(recorrido_id) }),
+        });
+        if (!res) return;
+        toast('Sesión reiniciada');
+      }
+    );
   }
 
   let toastTimer;
@@ -691,9 +590,8 @@
     return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
   }
 
-
   async function cargarEstadoDia() {
-    const res   = await fetch('/api/dashboard');
+    const res = await fetch('/api/dashboard');
     const datos = await res.json();
     const cont  = document.getElementById('estado-dia');
     if (!datos.length) { cont.innerHTML = '<div class="vacío">No hay recorridos configurados.</div>'; return; }
@@ -704,7 +602,7 @@
       const filas = pasajeros.length
         ? pasajeros.map(p => {
             const tipo = marcados[p.id];
-            const esAviso    = tipo === 'aviso';
+            const esAviso     = tipo === 'aviso';
             const estaOcupado = tipo && tipo !== 'aviso';
             return `<div class="pasajero-item">
               <span class="${esAviso ? 'texto-aviso' : ''}">${esc(p.nombre)}${esAviso ? ' · Avisó que no va' : ''}</span>
@@ -731,20 +629,21 @@
   }
 
   async function importarExcel() {
-    const input = document.getElementById('input-importar');
+    const input     = document.getElementById('input-importar');
     const resultado = document.getElementById('resultado-importar');
     if (!input.files[0]) { toast('Seleccioná un archivo primero'); return; }
 
     const formData = new FormData();
     formData.append('archivo', input.files[0]);
-
     resultado.style.display = 'none';
+
     try {
       const res = await fetch('/api/admin/importar', {
         method: 'POST',
         headers: { 'x-admin-token': adminToken },
         body: formData,
       });
+      if (res.status === 401) { adminFetch('/api/admin/importar'); return; }
       const data = await res.json();
       if (!res.ok) { toast(data.error || 'Error al importar'); return; }
 
@@ -768,27 +667,30 @@
   }
 
   async function marcarAviso(recorrido_id, pasajero_id) {
-    await fetch('/api/admin/aviso', {
+    const res = await adminFetch('/api/admin/aviso', {
       method: 'POST',
-      headers: adminHeaders(),
       body: JSON.stringify({ recorrido_id, pasajero_id }),
     });
+    if (!res) return;
     toast('Aviso registrado');
     cargarEstadoDia();
   }
 
   async function desmarcarAviso(recorrido_id, pasajero_id) {
-    await fetch('/api/admin/aviso', {
+    const res = await adminFetch('/api/admin/aviso', {
       method: 'DELETE',
-      headers: adminHeaders(),
       body: JSON.stringify({ recorrido_id, pasajero_id }),
     });
+    if (!res) return;
     toast('Aviso eliminado');
     cargarEstadoDia();
   }
 
   async function descargarReporte(fecha) {
-    const res = await fetch(`/api/admin/reporte/${fecha}/xlsx`, { headers: adminHeaders() });
+    const res = await fetch(`/api/admin/reporte/${fecha}/xlsx`, {
+      headers: { 'x-admin-token': adminToken },
+    });
+    if (res.status === 401) { adminFetch('/health'); return; }
     if (!res.ok) { toast('Error al descargar'); return; }
     const blob = await res.blob();
     const url  = URL.createObjectURL(blob);
@@ -798,20 +700,15 @@
   }
 
   async function cargarReportes() {
-    const res = await fetch('/api/admin/reportes', { headers: adminHeaders() });
+    const res = await adminFetch('/api/admin/reportes');
+    if (!res) return;
     const fechas = await res.json();
-    const lista = document.getElementById('lista-reportes');
-    if (!fechas.length) {
-      lista.innerHTML = '<div class="vacío">No hay reportes todavía.</div>';
-      return;
-    }
+    const lista  = document.getElementById('lista-reportes');
+    if (!fechas.length) { lista.innerHTML = '<div class="vacío">No hay reportes todavía.</div>'; return; }
     lista.innerHTML = fechas.map(fecha => {
       const [anio, mes, dia] = fecha.split('-');
-      const label = `${dia}/${mes}/${anio}`;
       return `<div class="reporte-item">
-        <div>
-          <div class="reporte-fecha">📄 ${label}</div>
-        </div>
+        <div><div class="reporte-fecha">📄 ${dia}/${mes}/${anio}</div></div>
         <button class="btn-csv" onclick="descargarReporte('${fecha}')">⬇ Descargar Excel</button>
       </div>`;
     }).join('');
@@ -821,18 +718,17 @@
     const fechaInput = document.getElementById('fecha-reporte').value;
     if (!fechaInput) { toast('Seleccioná una fecha'); return; }
     const btn = event.target;
-    btn.disabled = true;
-    btn.textContent = 'Generando...';
-    await fetch('/api/admin/reporte/generar', {
+    btn.disabled = true; btn.textContent = 'Generando...';
+    const res = await adminFetch('/api/admin/reporte/generar', {
       method: 'POST',
-      headers: adminHeaders(),
       body: JSON.stringify({ fecha: fechaInput }),
     });
-    const [a, m, d] = fechaInput.split('-');
-    toast(`Reporte del ${d}/${m}/${a} generado`);
-    await cargarReportes();
-    btn.disabled = false;
-    btn.textContent = 'Generar reporte';
+    if (res) {
+      const [a, m, d] = fechaInput.split('-');
+      toast(`Reporte del ${d}/${m}/${a} generado`);
+      await cargarReportes();
+    }
+    btn.disabled = false; btn.textContent = 'Generar reporte';
   }
 </script>
 </body>
