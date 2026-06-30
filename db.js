@@ -437,8 +437,8 @@ module.exports = {
       cur.setUTCDate(cur.getUTCDate() + 1);
     }
 
-    return fechas.flatMap(fecha =>
-      recorridos.map(rec => {
+    return recorridos.flatMap(rec =>
+      fechas.map(fecha => {
         const pasx   = pasajeros.filter(p => p.recorrido_id === rec.id);
         const sesion = sesiones.find(s => s.recorrido_id === rec.id && s.fecha === fecha) || null;
         const ret    = sesion ? retiros.filter(r => r.sesion_id === sesion.id) : [];
