@@ -253,8 +253,8 @@ async function construirExcel(titulo, filasResumen, filasDetalle, conFecha = fal
   const ws2 = wb.addWorksheet('Detalle pasajeros', { views: [{ state: 'frozen', ySplit: 2 }] });
 
   const colsDetalle = conFecha
-    ? [{ header: 'Fecha', width: 13 }, { header: 'Recorrido', width: 28 }, { header: 'Placa', width: 11 }, { header: 'Pasajero', width: 28 }, { header: 'Estado', width: 18 }, { header: 'Hora', width: 10 }]
-    : [{ header: 'Recorrido', width: 28 }, { header: 'Placa', width: 11 }, { header: 'Pasajero', width: 28 }, { header: 'Estado', width: 18 }, { header: 'Hora', width: 10 }];
+    ? [{ header: 'Fecha', width: 13 }, { header: 'Recorrido', width: 28 }, { header: 'Placa', width: 11 }, { header: 'Pasajero', width: 28 }, { header: 'Estado', width: 18 }, { header: 'Hora recogida', width: 14 }, { header: 'Hora llegada oficina', width: 20 }]
+    : [{ header: 'Recorrido', width: 28 }, { header: 'Placa', width: 11 }, { header: 'Pasajero', width: 28 }, { header: 'Estado', width: 18 }, { header: 'Hora recogida', width: 14 }, { header: 'Hora llegada oficina', width: 20 }];
 
   ws2.columns = colsDetalle;
 
@@ -273,8 +273,8 @@ async function construirExcel(titulo, filasResumen, filasDetalle, conFecha = fal
 
   filasDetalle.forEach(d => {
     const values = conFecha
-      ? [d.fecha, d.nombre, d.placa, d.pasajero, TIPO_LABEL[d.tipo] || d.tipo, d.hora || '-']
-      : [d.nombre, d.placa, d.pasajero, TIPO_LABEL[d.tipo] || d.tipo, d.hora || '-'];
+      ? [d.fecha, d.nombre, d.placa, d.pasajero, TIPO_LABEL[d.tipo] || d.tipo, d.hora || '-', d.hora_llegada || '-']
+      : [d.nombre, d.placa, d.pasajero, TIPO_LABEL[d.tipo] || d.tipo, d.hora || '-', d.hora_llegada || '-'];
     const row = ws2.addRow(values);
     styleDataRow(row, COLOR[d.tipo] || COLOR.pendiente);
   });
@@ -294,7 +294,7 @@ app.get('/api/admin/reporte/rango/xlsx', requireAdmin, async (req, res) => {
 
   const filas = await db.generarReporteRango(desde, hasta);
   const filasDetalle = filas.flatMap(r =>
-    r.detalle.map(p => ({ fecha: r.fecha, nombre: r.nombre, placa: r.placa, pasajero: p.nombre, tipo: p.tipo, hora: p.hora }))
+    r.detalle.map(p => ({ fecha: r.fecha, nombre: r.nombre, placa: r.placa, pasajero: p.nombre, tipo: p.tipo, hora: p.hora, hora_llegada: r.hora_llegada }))
   );
 
   const titulo = `Reporte de Recorridos — ${desde} al ${hasta}`;
@@ -310,7 +310,7 @@ app.get('/api/admin/reporte/:fecha/xlsx', requireAdmin, async (req, res) => {
   if (!reporte) return res.status(404).json({ error: 'Reporte no encontrado' });
 
   const filasDetalle = reporte.recorridos.flatMap(r =>
-    r.detalle.map(p => ({ nombre: r.nombre, placa: r.placa, pasajero: p.nombre, tipo: p.tipo, hora: p.hora }))
+    r.detalle.map(p => ({ nombre: r.nombre, placa: r.placa, pasajero: p.nombre, tipo: p.tipo, hora: p.hora, hora_llegada: r.hora_llegada }))
   );
 
   const titulo = `Reporte de Recorridos — ${reporte.fecha}   (generado: ${reporte.generado})`;
