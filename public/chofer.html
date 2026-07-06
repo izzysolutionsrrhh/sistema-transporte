@@ -215,6 +215,22 @@
     .item-pasajero.recogido { border-color: var(--verde); background: var(--verde-claro); }
     .item-pasajero.no-estaba { border-color: var(--rojo); background: var(--rojo-claro); }
     .item-pasajero.aviso { border-color: #7c3aed; background: #f5f3ff; opacity: 0.85; }
+    .item-pasajero.esperando {
+      border-color: var(--naranja); background: #fffbeb;
+      animation: pulso-espera 2s infinite;
+    }
+    @keyframes pulso-espera {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(217, 119, 6, 0.35); }
+      50%      { box-shadow: 0 0 0 6px rgba(217, 119, 6, 0); }
+    }
+    .item-pasajero.tocable { cursor: pointer; -webkit-tap-highlight-color: transparent; }
+    .item-pasajero.tocable:active { transform: scale(0.98); }
+
+    .espera-countdown {
+      font-size: 24px; font-weight: 800; color: var(--naranja);
+      font-variant-numeric: tabular-nums; letter-spacing: 1px;
+      padding-right: 4px;
+    }
 
     .pasajero-info { flex: 1; min-width: 0; }
 
@@ -532,12 +548,14 @@
     const recogidos  = retiros.filter(r => r.tipo === 'recogido').length;
     const noEstaban  = retiros.filter(r => r.tipo === 'no_estaba').length;
     const avisos     = retiros.filter(r => r.tipo === 'aviso').length;
-    const procesados = retiros.length;
+    const esperandoN = retiros.filter(r => r.tipo === 'esperando').length;
+    const procesados = retiros.length - esperandoN;
     const total = pasajeros.length;
     const partes = [];
-    if (recogidos) partes.push(`${recogidos} recogido${recogidos !== 1 ? 's' : ''}`);
-    if (noEstaban) partes.push(`${noEstaban} no estaba${noEstaban !== 1 ? 'n' : ''}`);
-    if (avisos)    partes.push(`${avisos} avisó que no va`);
+    if (recogidos)  partes.push(`${recogidos} recogido${recogidos !== 1 ? 's' : ''}`);
+    if (noEstaban)  partes.push(`${noEstaban} no estaba${noEstaban !== 1 ? 'n' : ''}`);
+    if (avisos)     partes.push(`${avisos} avisó que no va`);
+    if (esperandoN) partes.push(`${esperandoN} esperando`);
     $('progreso-texto').textContent = partes.length
       ? `${partes.join(', ')} de ${total}`
       : `0 de ${total} persona${total !== 1 ? 's' : ''}`;
@@ -582,17 +600,32 @@
 
     const enRecorrido = estadoSesion === 'en_recorrido';
 
+    _esperaDeadlines = {};
+
     pasajeros.forEach(p => {
       const marcado   = marcados[p.id];
-      const esRecogido = marcado?.tipo === 'recogido';
-      const esNoEstaba = marcado?.tipo === 'no_estaba';
-      const esAviso    = marcado?.tipo === 'aviso';
+      const esRecogido  = marcado?.tipo === 'recogido';
+      const esNoEstaba  = marcado?.tipo === 'no_estaba';
+      const esAviso     = marcado?.tipo === 'aviso';
+      const esEsperando = marcado?.tipo === 'esperando';
+
+      if (esEsperando) {
+        _esperaDeadlines[p.id] = Date.now() + (marcado.espera_restante ?? 0) * 1000;
+      } else {
+        _esperadosEmitidos.delete(p.id);
+      }
 
       const li = document.createElement('li');
-      li.className = `item-pasajero${esRecogido ? ' recogido' : esNoEstaba ? ' no-estaba' : esAviso ? ' aviso' : ''}`;
+      li.className = `item-pasajero${esRecogido ? ' recogido' : esNoEstaba ? ' no-estaba' : esAviso ? ' aviso' : esEsperando ? ' esperando' : ''}`;
 
       let accionHTML;
-      if (enRecorrido) {
+      if (enRecorrido && esEsperando) {
+        // En espera: cuenta regresiva + botón para marcar "no estaba" antes de tiempo
+        accionHTML = `<div class="acciones-pasajero" style="align-items:center">
+          <span class="espera-countdown" data-cd="${p.id}">${fmtCountdown(marcado.espera_restante ?? 0)}</span>
+          <button class="btn-marcar no-estaba" data-id="${p.id}" data-tipo="no_estaba" title="No estaba">✗</button>
+        </div>`;
+      } else if (enRecorrido) {
         // Siempre mostrar los 3 botones; el marcado actual queda con fondo sólido (.sel)
         accionHTML = `<div class="acciones-pasajero">
           <button class="btn-marcar recogido${esRecogido ? ' sel' : ''}" data-id="${p.id}" data-tipo="recogido" title="Recogido">✓</button>
@@ -619,11 +652,19 @@
       }
 
       // Sublinea con hora/estado cuando ya está marcado durante en_recorrido
-      const colorSublinea = esRecogido ? 'var(--verde)' : esNoEstaba ? 'var(--rojo)' : '#7c3aed';
-      const textoSublinea = esRecogido ? marcado.hora : esNoEstaba ? marcado.hora : esAviso ? 'Avisó que no va' : '';
-      const sublinea = enRecorrido && marcado
-        ? `<div class="pasajero-sublinea" style="color:${colorSublinea}">${textoSublinea}</div>`
-        : '';
+      let sublinea = '';
+      if (enRecorrido && esEsperando) {
+        sublinea = `<div class="pasajero-sublinea" style="color:var(--naranja)">⏱ Esperando — tocá cuando suba</div>`;
+      } else if (enRecorrido && marcado) {
+        const colorSublinea = esRecogido ? 'var(--verde)' : esNoEstaba ? 'var(--rojo)' : '#7c3aed';
+        const esperaTxt = marcado.espera_seg != null ? ` · esperó ${fmtEspera(marcado.espera_seg)}` : '';
+        const textoSublinea = esRecogido ? marcado.hora + esperaTxt
+                            : esNoEstaba ? (marcado.hora || 'No estaba') + esperaTxt
+                            : 'Avisó que no va';
+        sublinea = `<div class="pasajero-sublinea" style="color:${colorSublinea}">${textoSublinea}</div>`;
+      } else if (enRecorrido) {
+        sublinea = `<div class="pasajero-sublinea" style="color:var(--gris);font-weight:400">Tocá al llegar · espera de 3 min</div>`;
+      }
 
       li.innerHTML = `
         <div class="pasajero-info">
@@ -631,15 +672,66 @@
           ${sublinea}
         </div>
         ${accionHTML}`;
+
+      // Tocar la fila: sin marcar → inicia espera; esperando → subió (recogido)
+      if (enRecorrido && !marcado) {
+        li.classList.add('tocable');
+        li.addEventListener('click', () => iniciarEspera(p.id));
+      } else if (enRecorrido && esEsperando) {
+        li.classList.add('tocable');
+        li.addEventListener('click', () => marcarPasajero(p.id, 'recogido'));
+      }
+
       lista.appendChild(li);
     });
 
     if (enRecorrido) {
       lista.querySelectorAll('.btn-marcar').forEach(btn => {
-        btn.addEventListener('click', () => marcarPasajero(btn.dataset.id, btn.dataset.tipo));
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          marcarPasajero(btn.dataset.id, btn.dataset.tipo);
+        });
       });
     }
   }
+
+  // ── ESPERA DE 3 MINUTOS ─────────────────────────────────────
+  let _esperaDeadlines = {};              // pasajero_id → timestamp límite
+  const _esperadosEmitidos = new Set();   // avisos de expiración ya enviados
+
+  function fmtCountdown(seg) {
+    return `${Math.floor(seg / 60)}:${String(seg % 60).padStart(2, '0')}`;
+  }
+
+  function fmtEspera(seg) {
+    const m = Math.floor(seg / 60), s = seg % 60;
+    return m > 0 ? `${m}m ${String(s).padStart(2, '0')}s` : `${s}s`;
+  }
+
+  function iniciarEspera(pasajero_id) {
+    if (!estado?.sesion) return;
+    socket.emit('iniciar_espera', {
+      sesion_id: estado.sesion.id,
+      pasajero_id: parseInt(pasajero_id),
+      codigo: estado.recorrido.codigo,
+    });
+  }
+
+  // Tick de las cuentas regresivas; al llegar a 0 se avisa al servidor,
+  // que valida y marca "no estaba"
+  setInterval(() => {
+    document.querySelectorAll('.espera-countdown').forEach(el => {
+      const id = parseInt(el.dataset.cd);
+      const deadline = _esperaDeadlines[id];
+      if (deadline == null) return;
+      const resta = Math.max(0, Math.round((deadline - Date.now()) / 1000));
+      el.textContent = fmtCountdown(resta);
+      if (resta <= 0 && !_esperadosEmitidos.has(id)) {
+        _esperadosEmitidos.add(id);
+        socket.emit('expirar_espera');
+      }
+    });
+  }, 1000);
 
   // ── ACCIONES ────────────────────────────────────────────────
   $('btn-iniciar').addEventListener('click', () => {
@@ -658,10 +750,12 @@
   $('btn-llegar').addEventListener('click', () => {
     if (!estado?.sesion) return;
     const recogidos = estado.retiros.filter(r => r.tipo === 'recogido').length;
+    const esperando = estado.retiros.filter(r => r.tipo === 'esperando').length;
     const total = estado.pasajeros.length;
-    const sinMarcar = total - estado.retiros.length;
+    const sinMarcar = total - (estado.retiros.length - esperando);
     let msg = `¿Confirmás que llegaste a la oficina?\n${recogidos} recogido${recogidos !== 1 ? 's' : ''}`;
     if (sinMarcar > 0) msg += ` — ${sinMarcar} sin marcar`;
+    if (esperando > 0) msg += `\n⚠️ Hay ${esperando} espera${esperando !== 1 ? 's' : ''} en curso: quedará${esperando !== 1 ? 'n' : ''} como "no estaba"`;
     confirmar(msg, () => {
       $('btn-llegar').disabled = true;
       socket.emit('llegar_oficina', { sesion_id: estado.sesion.id, codigo: estado.recorrido.codigo });
@@ -730,10 +824,11 @@
       pendiente:    { txt: 'Pendiente',    bg: '#f1f5f9', color: '#64748b' },
     };
     const tipoCfg = {
-      recogido:  { txt: '✓ Recogido',        color: 'var(--verde)' },
-      no_estaba: { txt: '✗ No estaba',        color: 'var(--rojo)'  },
-      aviso:     { txt: '📵 Avisó que no va', color: '#7c3aed'      },
-      pendiente: { txt: 'Pendiente',          color: 'var(--gris)'  },
+      recogido:  { txt: '✓ Recogido',        color: 'var(--verde)'   },
+      no_estaba: { txt: '✗ No estaba',        color: 'var(--rojo)'    },
+      aviso:     { txt: '📵 Avisó que no va', color: '#7c3aed'        },
+      esperando: { txt: '⏱ Esperando',        color: 'var(--naranja)' },
+      pendiente: { txt: 'Pendiente',          color: 'var(--gris)'    },
     };
 
     contenido.innerHTML = data.sesiones.map((s, i) => {
@@ -755,9 +850,10 @@
           <div class="sesion-detalle" id="sesion-${i}">
             ${s.detalle.map(p => {
               const t = tipoCfg[p.tipo] || tipoCfg.pendiente;
+              const esperaTxt = p.espera_seg != null ? ` · esperó ${fmtEspera(p.espera_seg)}` : '';
               return `<div class="sesion-pasajero-row">
                 <span>${esc(p.nombre)}</span>
-                <span style="color:${t.color};font-weight:700">${t.txt}${p.hora ? ' ' + p.hora : ''}</span>
+                <span style="color:${t.color};font-weight:700">${t.txt}${p.hora ? ' ' + p.hora : ''}${esperaTxt}</span>
               </div>`;
             }).join('')}
           </div>
