@@ -95,7 +95,21 @@
       margin-bottom: 20px;
       text-align: center;
       color: var(--texto);
+      white-space: pre-line;
     }
+    #modal-obs {
+      width: 100%;
+      min-height: 72px;
+      padding: 12px;
+      font-size: 15px;
+      font-family: inherit;
+      border: 2px solid var(--borde);
+      border-radius: 10px;
+      outline: none;
+      resize: vertical;
+      margin-bottom: 16px;
+    }
+    #modal-obs:focus { border-color: var(--azul); }
     .modal-btns { display: flex; gap: 10px; }
     .btn-modal-cancel {
       flex: 1; padding: 14px;
@@ -335,6 +349,8 @@
 <div id="modal-overlay" class="hidden">
   <div id="modal-box">
     <p id="modal-msg"></p>
+    <textarea id="modal-obs" class="hidden" maxlength="500"
+              placeholder="¿Alguna observación? (opcional)"></textarea>
     <div class="modal-btns">
       <button class="btn-modal-cancel" id="modal-cancelar">Cancelar</button>
       <button class="btn-modal-ok" id="modal-ok">Confirmar</button>
@@ -451,9 +467,11 @@
   // ── MODAL ───────────────────────────────────────────────────
   let _modalCb = null;
 
-  function confirmar(msg, onSi, { esRojo = false } = {}) {
+  function confirmar(msg, onSi, { esRojo = false, conObservacion = false } = {}) {
     $('modal-msg').textContent = msg;
     $('modal-ok').className = `btn-modal-ok${esRojo ? ' rojo' : ''}`;
+    $('modal-obs').value = '';
+    $('modal-obs').classList.toggle('hidden', !conObservacion);
     _modalCb = onSi;
     $('modal-overlay').classList.remove('hidden');
   }
@@ -466,8 +484,9 @@
   $('modal-cancelar').addEventListener('click', cerrarModal);
   $('modal-ok').addEventListener('click', () => {
     const cb = _modalCb;
+    const obs = $('modal-obs').value.trim();
     cerrarModal();
-    if (cb) cb();
+    if (cb) cb(obs);
   });
 
   // ── OFFLINE / RECONEXIÓN ────────────────────────────────────
@@ -585,6 +604,7 @@
           <h3>¡Llegaste a la oficina!</h3>
           <p>Hora de llegada: <strong>${sesion.hora_llegada}</strong></p>
           <p style="margin-top:4px">${recogidos} persona${recogidos !== 1 ? 's' : ''} traída${recogidos !== 1 ? 's' : ''}</p>
+          ${sesion.observacion ? `<p style="margin-top:8px">📝 ${esc(sesion.observacion)}</p>` : ''}
         </div>`;
     } else if (estadoSesion === 'no_asistio') {
       bloqueMensaje.classList.remove('hidden');
@@ -760,10 +780,14 @@
     let msg = `¿Confirmás que llegaste a la oficina?\n${recogidos} recogido${recogidos !== 1 ? 's' : ''}`;
     if (sinMarcar > 0) msg += ` — ${sinMarcar} sin marcar`;
     if (esperando > 0) msg += `\n⚠️ Hay ${esperando} espera${esperando !== 1 ? 's' : ''} en curso: quedará${esperando !== 1 ? 'n' : ''} como "no estaba"`;
-    confirmar(msg, () => {
+    confirmar(msg, (observacion) => {
       $('btn-llegar').disabled = true;
-      socket.emit('llegar_oficina', { sesion_id: estado.sesion.id, codigo: estado.recorrido.codigo });
-    });
+      socket.emit('llegar_oficina', {
+        sesion_id: estado.sesion.id,
+        codigo: estado.recorrido.codigo,
+        observacion,
+      });
+    }, { conObservacion: true });
   });
 
   function marcarPasajero(pasajero_id, tipo) {
@@ -848,6 +872,7 @@
               <div class="sesion-fecha">${d}/${m}/${a}</div>
               <div class="sesion-stats">${s.recogidos} recogidos · ${s.no_estaban} no estaban · ${s.detalle.filter(p=>p.tipo==='aviso').length} avisaron · ${s.total} total</div>
               ${horas ? `<div class="sesion-stats">${horas}</div>` : ''}
+              ${s.observacion ? `<div class="sesion-stats">📝 ${esc(s.observacion)}</div>` : ''}
             </div>
             <span class="sesion-badge" style="background:${badge.bg};color:${badge.color}">${badge.txt}</span>
           </div>

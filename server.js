@@ -263,8 +263,8 @@ async function construirExcel(titulo, filasResumen, filasDetalle, conFecha = fal
   const ws1 = wb.addWorksheet('Resumen', { views: [{ state: 'frozen', ySplit: 2 }] });
 
   const colsResumen = conFecha
-    ? [{ header: 'Fecha', width: 13 }, { header: 'Recorrido', width: 28 }, { header: 'Placa', width: 11 }, { header: 'Estado', width: 16 }, { header: 'Hora inicio', width: 13 }, { header: 'Hora llegada', width: 14 }, { header: 'Total', width: 8 }, { header: 'Recogidos', width: 11 }, { header: 'No estaban', width: 12 }, { header: 'Avisaron', width: 11 }]
-    : [{ header: 'Recorrido', width: 28 }, { header: 'Placa', width: 11 }, { header: 'Estado', width: 16 }, { header: 'Hora inicio', width: 13 }, { header: 'Hora llegada', width: 14 }, { header: 'Total', width: 8 }, { header: 'Recogidos', width: 11 }, { header: 'No estaban', width: 12 }, { header: 'Avisaron', width: 11 }];
+    ? [{ header: 'Fecha', width: 13 }, { header: 'Recorrido', width: 28 }, { header: 'Placa', width: 11 }, { header: 'Estado', width: 16 }, { header: 'Hora inicio', width: 13 }, { header: 'Hora llegada', width: 14 }, { header: 'Total', width: 8 }, { header: 'Recogidos', width: 11 }, { header: 'No estaban', width: 12 }, { header: 'Avisaron', width: 11 }, { header: 'Observación', width: 40 }]
+    : [{ header: 'Recorrido', width: 28 }, { header: 'Placa', width: 11 }, { header: 'Estado', width: 16 }, { header: 'Hora inicio', width: 13 }, { header: 'Hora llegada', width: 14 }, { header: 'Total', width: 8 }, { header: 'Recogidos', width: 11 }, { header: 'No estaban', width: 12 }, { header: 'Avisaron', width: 11 }, { header: 'Observación', width: 40 }];
 
   ws1.columns = colsResumen;
 
@@ -284,8 +284,8 @@ async function construirExcel(titulo, filasResumen, filasDetalle, conFecha = fal
 
   filasResumen.forEach(r => {
     const values = conFecha
-      ? [r.fecha, r.nombre, r.placa, ESTADO_LABEL[r.estado] || r.estado, r.hora_inicio || '-', r.hora_llegada || '-', r.total_pasajeros, r.recogidos, r.no_estaban, r.avisaron]
-      : [r.nombre, r.placa, ESTADO_LABEL[r.estado] || r.estado, r.hora_inicio || '-', r.hora_llegada || '-', r.total_pasajeros, r.recogidos, r.no_estaban, r.avisaron];
+      ? [r.fecha, r.nombre, r.placa, ESTADO_LABEL[r.estado] || r.estado, r.hora_inicio || '-', r.hora_llegada || '-', r.total_pasajeros, r.recogidos, r.no_estaban, r.avisaron, r.observacion || '-']
+      : [r.nombre, r.placa, ESTADO_LABEL[r.estado] || r.estado, r.hora_inicio || '-', r.hora_llegada || '-', r.total_pasajeros, r.recogidos, r.no_estaban, r.avisaron, r.observacion || '-'];
     const row = ws1.addRow(values);
     styleDataRow(row, COLOR[r.estado] || COLOR.pendiente);
   });
@@ -417,10 +417,11 @@ io.on('connection', (socket) => {
     }
   });
 
-  socket.on('llegar_oficina', async ({ sesion_id, codigo }) => {
+  socket.on('llegar_oficina', async ({ sesion_id, codigo, observacion }) => {
     try {
       const horaLlegada = hora();
-      const estado = await db.llegarOficina(sesion_id, horaLlegada);
+      const obs = (observacion || '').toString().trim().slice(0, 500) || null;
+      const estado = await db.llegarOficina(sesion_id, horaLlegada, obs);
       if (!estado) return;
       broadcastActualizacion(codigo, estado);
       await db.guardarReporte();
@@ -429,6 +430,7 @@ io.on('connection', (socket) => {
         hora: horaLlegada,
         retirados: estado.retiros.filter(r => r.tipo === 'recogido').length,
         total: estado.pasajeros.length,
+        observacion: obs,
       });
     } catch (err) {
       console.error('llegar_oficina:', err.message);
