@@ -119,6 +119,9 @@ async function initDB() {
     -- Espera de 3 min por pasajero (epoch ms de inicio + segundos esperados)
     ALTER TABLE retiros ADD COLUMN IF NOT EXISTS espera_inicio BIGINT;
     ALTER TABLE retiros ADD COLUMN IF NOT EXISTS espera_seg    INTEGER;
+
+    -- Observación del chofer al llegar a la oficina
+    ALTER TABLE sesiones ADD COLUMN IF NOT EXISTS observacion TEXT;
   `);
   console.log('  Base de datos inicializada correctamente');
 }
@@ -258,7 +261,7 @@ module.exports = {
     return recs.map(x => x.codigo);
   },
 
-  async llegarOficina(sesion_id, hora) {
+  async llegarOficina(sesion_id, hora, observacion = null) {
     sesion_id = parseInt(sesion_id);
     // Si quedó alguna espera activa, cerrarla como "no estaba"
     await pool.query(
@@ -270,8 +273,8 @@ module.exports = {
       [hora, ESPERA_SEG, Date.now(), sesion_id]
     );
     await pool.query(
-      "UPDATE sesiones SET estado = 'completado', hora_llegada = $1 WHERE id = $2",
-      [hora, sesion_id]
+      "UPDATE sesiones SET estado = 'completado', hora_llegada = $1, observacion = $2 WHERE id = $3",
+      [hora, observacion, sesion_id]
     );
     const { rows: s } = await pool.query('SELECT * FROM sesiones WHERE id = $1', [sesion_id]);
     const { rows: r } = await pool.query('SELECT * FROM recorridos WHERE id = $1', [s[0].recorrido_id]);
@@ -444,6 +447,7 @@ module.exports = {
         estado:          sesion?.estado || 'pendiente',
         hora_inicio:     sesion?.hora_inicio  || null,
         hora_llegada:    sesion?.hora_llegada || null,
+        observacion:     sesion?.observacion  || null,
         total_pasajeros: pasx.length,
         recogidos:       ret.filter(r => r.tipo === 'recogido').length,
         no_estaban:      ret.filter(r => r.tipo === 'no_estaba').length,

@@ -364,9 +364,9 @@
     renderizarDashboard(datos);
   });
 
-  socket.on('alerta_llegada', ({ recorrido, hora, retirados, total }) => {
-    mostrarToast(`🎉 ${recorrido} llegó a las ${hora} con ${retirados}/${total} personas`);
-    agregarLog('llegada', `<strong>${recorrido}</strong> llegó a la oficina a las <strong>${hora}</strong> con <strong>${retirados}/${total}</strong> personas`);
+  socket.on('alerta_llegada', ({ recorrido, hora, retirados, total, observacion }) => {
+    mostrarToast(`🎉 ${recorrido} llegó a las ${hora} con ${retirados}/${total} personas${observacion ? ` — 📝 ${observacion}` : ''}`);
+    agregarLog('llegada', `<strong>${recorrido}</strong> llegó a la oficina a las <strong>${hora}</strong> con <strong>${retirados}/${total}</strong> personas${observacion ? `<br>📝 ${esc(observacion)}` : ''}`);
     if ('Notification' in window && Notification.permission === 'granted') {
       new Notification('🚌 Recorrido llegó', { body: `${recorrido} llegó a las ${hora}` });
     }
@@ -469,6 +469,7 @@
         ${sesion?.hora_inicio  ? `<span>🚀 Salida: <strong>${sesion.hora_inicio}</strong></span>` : ''}
         ${sesion?.hora_llegada ? `<span>🏁 Llegada: <strong>${sesion.hora_llegada}</strong></span>` : ''}
       </div>
+      ${sesion?.observacion ? `<div class="hora-info" style="margin-top:-4px"><span>📝 <strong>${esc(sesion.observacion)}</strong></span></div>` : ''}
 
       <button class="toggle-pasajeros" onclick="togglePasajeros(this)">
         Ver personas (${total})
