@@ -404,6 +404,9 @@
   const $ = id => document.getElementById(id);
 
   // ── BLOQUEO DE HORARIO (1am – 4am Lima) ────────────────────
+  // Desactivado temporalmente para pruebas; poner en true para reactivar
+  const BLOQUEO_HORARIO_ACTIVO = false;
+
   function horaLima() {
     const ahora = new Date();
     const h = parseInt(new Intl.DateTimeFormat('es-PE', { timeZone: 'America/Lima', hour: 'numeric', hour12: false }).format(ahora));
@@ -413,6 +416,7 @@
   }
 
   function estaEnHorario() {
+    if (!BLOQUEO_HORARIO_ACTIVO) return true;
     const { h } = horaLima();
     return h >= 1 && h < 4;
   }
