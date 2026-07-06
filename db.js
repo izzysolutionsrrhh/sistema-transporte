@@ -9,6 +9,9 @@ const pool = new Pool({
 
 const TZ = process.env.APP_TIMEZONE || 'America/Lima';
 
+// Tiempo máximo de espera por pasajero (segundos)
+const ESPERA_SEG = parseInt(process.env.ESPERA_SEG || '180', 10);
+
 function fechaHoy() {
   return new Date().toLocaleDateString('en-CA', { timeZone: TZ });
 }
@@ -36,6 +39,18 @@ async function getOCrearSesion(recorrido_id) {
   return rows[0];
 }
 
+// Normaliza un retiro: tipo por defecto, espera_inicio numérico y segundos
+// restantes de espera (calculados con el reloj del servidor para evitar
+// desfasajes con el reloj del celular del chofer)
+function mapRetiro(r) {
+  const espera_inicio = r.espera_inicio != null ? Number(r.espera_inicio) : null;
+  const out = { ...r, tipo: r.tipo || 'recogido', espera_inicio };
+  if (out.tipo === 'esperando' && espera_inicio) {
+    out.espera_restante = Math.max(0, Math.round((espera_inicio + ESPERA_SEG * 1000 - Date.now()) / 1000));
+  }
+  return out;
+}
+
 async function buildEstado(recorrido) {
   const { rows: pasajeros } = await pool.query(
     'SELECT * FROM pasajeros WHERE recorrido_id = $1 AND activo = TRUE ORDER BY orden',
@@ -50,7 +65,7 @@ async function buildEstado(recorrido) {
        WHERE r.sesion_id = $1 ORDER BY r.hora NULLS LAST`,
       [sesion.id]
     );
-    retiros = rows.map(r => ({ ...r, tipo: r.tipo || 'recogido' }));
+    retiros = rows.map(mapRetiro);
   }
   return { recorrido, pasajeros, sesion: sesion || null, retiros };
 }
@@ -100,6 +115,10 @@ async function initDB() {
       generado TEXT NOT NULL,
       datos    JSONB NOT NULL
     );
+
+    -- Espera de 3 min por pasajero (epoch ms de inicio + segundos esperados)
+    ALTER TABLE retiros ADD COLUMN IF NOT EXISTS espera_inicio BIGINT;
+    ALTER TABLE retiros ADD COLUMN IF NOT EXISTS espera_seg    INTEGER;
   `);
   console.log('  Base de datos inicializada correctamente');
 }
@@ -177,20 +196,79 @@ module.exports = {
   async marcarPasajero(sesion_id, pasajero_id, hora, tipo) {
     sesion_id   = parseInt(sesion_id);
     pasajero_id = parseInt(pasajero_id);
+    // Si estaba en espera, registrar cuánto tiempo se esperó
+    const { rows: prev } = await pool.query(
+      'SELECT tipo, espera_inicio, espera_seg FROM retiros WHERE sesion_id = $1 AND pasajero_id = $2',
+      [sesion_id, pasajero_id]
+    );
+    let espera_seg = prev[0]?.espera_seg ?? null;
+    if (prev[0]?.tipo === 'esperando' && prev[0].espera_inicio != null) {
+      espera_seg = Math.min(ESPERA_SEG, Math.round((Date.now() - Number(prev[0].espera_inicio)) / 1000));
+    }
     await pool.query(
-      `INSERT INTO retiros (sesion_id, pasajero_id, hora, tipo)
-       VALUES ($1, $2, $3, $4)
+      `INSERT INTO retiros (sesion_id, pasajero_id, hora, tipo, espera_seg)
+       VALUES ($1, $2, $3, $4, $5)
        ON CONFLICT (sesion_id, pasajero_id)
-       DO UPDATE SET tipo = EXCLUDED.tipo, hora = EXCLUDED.hora`,
-      [sesion_id, pasajero_id, hora, tipo]
+       DO UPDATE SET tipo = EXCLUDED.tipo, hora = EXCLUDED.hora,
+                     espera_seg = EXCLUDED.espera_seg, espera_inicio = NULL`,
+      [sesion_id, pasajero_id, hora, tipo, espera_seg]
     );
     const { rows: s } = await pool.query('SELECT * FROM sesiones WHERE id = $1', [sesion_id]);
     const { rows: r } = await pool.query('SELECT * FROM recorridos WHERE id = $1', [s[0].recorrido_id]);
     return buildEstado(r[0]);
   },
 
+  // Inicia la espera de 3 min de un pasajero (solo si aún no fue marcado
+  // y la sesión sigue en recorrido)
+  async iniciarEspera(sesion_id, pasajero_id) {
+    sesion_id   = parseInt(sesion_id);
+    pasajero_id = parseInt(pasajero_id);
+    const { rows: s } = await pool.query('SELECT * FROM sesiones WHERE id = $1', [sesion_id]);
+    if (!s[0]) return null;
+    if (s[0].estado === 'en_recorrido') {
+      await pool.query(
+        `INSERT INTO retiros (sesion_id, pasajero_id, tipo, espera_inicio)
+         VALUES ($1, $2, 'esperando', $3)
+         ON CONFLICT (sesion_id, pasajero_id) DO NOTHING`,
+        [sesion_id, pasajero_id, Date.now()]
+      );
+    }
+    const { rows: r } = await pool.query('SELECT * FROM recorridos WHERE id = $1', [s[0].recorrido_id]);
+    return buildEstado(r[0]);
+  },
+
+  // Esperas vencidas (>3 min) → marcar "no estaba". Devuelve los códigos
+  // de los recorridos afectados para notificarlos por socket.
+  async expirarEsperas(hora) {
+    const cutoff = Date.now() - ESPERA_SEG * 1000;
+    const { rows } = await pool.query(
+      `UPDATE retiros
+       SET tipo = 'no_estaba', hora = $1, espera_seg = $2, espera_inicio = NULL
+       WHERE tipo = 'esperando' AND espera_inicio <= $3
+       RETURNING sesion_id`,
+      [hora, ESPERA_SEG, cutoff]
+    );
+    if (!rows.length) return [];
+    const { rows: recs } = await pool.query(
+      `SELECT DISTINCT r.codigo
+       FROM sesiones s JOIN recorridos r ON r.id = s.recorrido_id
+       WHERE s.id = ANY($1)`,
+      [[...new Set(rows.map(x => x.sesion_id))]]
+    );
+    return recs.map(x => x.codigo);
+  },
+
   async llegarOficina(sesion_id, hora) {
     sesion_id = parseInt(sesion_id);
+    // Si quedó alguna espera activa, cerrarla como "no estaba"
+    await pool.query(
+      `UPDATE retiros
+       SET tipo = 'no_estaba', hora = $1,
+           espera_seg = LEAST($2, (($3::bigint - espera_inicio) / 1000)::int),
+           espera_inicio = NULL
+       WHERE sesion_id = $4 AND tipo = 'esperando'`,
+      [hora, ESPERA_SEG, Date.now(), sesion_id]
+    );
     await pool.query(
       "UPDATE sesiones SET estado = 'completado', hora_llegada = $1 WHERE id = $2",
       [hora, sesion_id]
@@ -251,7 +329,7 @@ module.exports = {
          WHERE r.sesion_id = ANY($1) ORDER BY r.hora NULLS LAST`,
         [sesionIds]
       );
-      retiros = rows.map(r => ({ ...r, tipo: r.tipo || 'recogido' }));
+      retiros = rows.map(mapRetiro);
     }
 
     return recorridos.map(rec => {
@@ -311,7 +389,7 @@ module.exports = {
     const sesionesDetalle = sesiones.map(sesion => {
       const ret = todosRetiros
         .filter(r => r.sesion_id === sesion.id)
-        .map(r => ({ ...r, tipo: r.tipo || 'recogido' }));
+        .map(mapRetiro);
       return {
         ...sesion,
         total:      pasajeros.length,
@@ -319,7 +397,7 @@ module.exports = {
         no_estaban: ret.filter(r => r.tipo === 'no_estaba').length,
         detalle: pasajeros.map(p => {
           const r = ret.find(x => x.pasajero_id === p.id);
-          return { nombre: p.nombre, tipo: r?.tipo || 'pendiente', hora: r?.hora || null };
+          return { nombre: p.nombre, tipo: r?.tipo || 'pendiente', hora: r?.hora || null, espera_seg: r?.espera_seg ?? null };
         }),
       };
     });
@@ -353,7 +431,7 @@ module.exports = {
         'SELECT * FROM retiros WHERE sesion_id = ANY($1)',
         [sesionIds]
       );
-      retiros = rows.map(r => ({ ...r, tipo: r.tipo || 'recogido' }));
+      retiros = rows.map(mapRetiro);
     }
 
     const recorridosData = recorridos.map(rec => {
@@ -372,7 +450,7 @@ module.exports = {
         avisaron:        ret.filter(r => r.tipo === 'aviso').length,
         detalle: pasx.map(p => {
           const r = ret.find(x => x.pasajero_id === p.id);
-          return { nombre: p.nombre, tipo: r?.tipo || 'pendiente', hora: r?.hora || null };
+          return { nombre: p.nombre, tipo: r?.tipo || 'pendiente', hora: r?.hora || null, espera_seg: r?.espera_seg ?? null };
         }),
       };
     });
@@ -423,7 +501,7 @@ module.exports = {
         'SELECT * FROM retiros WHERE sesion_id = ANY($1)',
         [sesiones.map(s => s.id)]
       );
-      retiros = rows.map(r => ({ ...r, tipo: r.tipo || 'recogido' }));
+      retiros = rows.map(mapRetiro);
     }
 
     // Generar todas las fechas del rango
@@ -455,7 +533,7 @@ module.exports = {
           avisaron:        ret.filter(r => r.tipo === 'aviso').length,
           detalle: pasx.map(p => {
             const r = ret.find(x => x.pasajero_id === p.id);
-            return { nombre: p.nombre, tipo: r?.tipo || 'pendiente', hora: r?.hora || null };
+            return { nombre: p.nombre, tipo: r?.tipo || 'pendiente', hora: r?.hora || null, espera_seg: r?.espera_seg ?? null };
           }),
         };
       })

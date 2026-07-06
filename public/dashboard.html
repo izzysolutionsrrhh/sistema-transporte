@@ -433,9 +433,10 @@
     const recogidos     = retiros.filter(r => r.tipo === 'recogido').length;
     const noEstaban     = retiros.filter(r => r.tipo === 'no_estaba').length;
     const avisos        = retiros.filter(r => r.tipo === 'aviso').length;
+    const esperando     = retiros.filter(r => r.tipo === 'esperando').length;
     const totalRetirados = recogidos;
     const total = pasajeros.length;
-    const pct = total ? Math.round((retiros.length / total) * 100) : 0;
+    const pct = total ? Math.round(((retiros.length - esperando) / total) * 100) : 0;
 
     const badgeTextos = {
       pendiente: 'Pendiente', en_recorrido: 'En camino',
@@ -457,7 +458,7 @@
       </div>
 
       <div class="progreso-info">
-        <span><strong>${recogidos}</strong> recogidos · <strong>${noEstaban}</strong> no estaban · <strong>${avisos}</strong> avisaron · ${total} total</span>
+        <span><strong>${recogidos}</strong> recogidos · <strong>${noEstaban}</strong> no estaban · <strong>${avisos}</strong> avisaron${esperando ? ` · <strong style="color:#fbbf24">${esperando}</strong> esperando` : ''} · ${total} total</span>
         <span>${pct}%</span>
       </div>
       <div class="barra-outer">
@@ -479,11 +480,13 @@
           if (!r) {
             estado_html = `<span class="pendiente">Pendiente</span>`;
           } else if (r.tipo === 'no_estaba') {
-            estado_html = `<span class="no-estaba">✗ No estaba</span>`;
+            estado_html = `<span class="no-estaba">✗ No estaba${r.espera_seg != null ? ` (esperó ${fmtEspera(r.espera_seg)})` : ''}</span>`;
           } else if (r.tipo === 'aviso') {
             estado_html = `<span style="color:#a78bfa;font-size:12px;font-weight:700">📵 Avisó</span>`;
+          } else if (r.tipo === 'esperando') {
+            estado_html = `<span style="color:#fbbf24;font-size:12px;font-weight:700">⏱ Esperando…</span>`;
           } else {
-            estado_html = `<span class="hora-retiro">✓ ${r.hora}</span>`;
+            estado_html = `<span class="hora-retiro">✓ ${r.hora}${r.espera_seg ? ` · esperó ${fmtEspera(r.espera_seg)}` : ''}</span>`;
           }
           return `<div class="pasajero-row">
             <span class="nombre">${esc(p.nombre)}</span>
@@ -543,6 +546,11 @@
 
   function esc(str) {
     return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  function fmtEspera(seg) {
+    const m = Math.floor(seg / 60), s = seg % 60;
+    return m > 0 ? `${m}m ${String(s).padStart(2, '0')}s` : `${s}s`;
   }
 </script>
 </body>

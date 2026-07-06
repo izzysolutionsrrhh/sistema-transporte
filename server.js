@@ -207,7 +207,13 @@ app.post('/api/admin/reporte/generar', requireAdmin, async (req, res) => {
 // ─── Excel estilizado ────────────────────────────────────────────────────────
 
 const ESTADO_LABEL = { completado: 'Completado', en_recorrido: 'En recorrido', no_asistio: 'No asistió', pendiente: 'Pendiente' };
-const TIPO_LABEL   = { recogido: 'Recogido', no_estaba: 'No estaba', aviso: 'Avisó que no va', pendiente: 'Pendiente' };
+const TIPO_LABEL   = { recogido: 'Recogido', no_estaba: 'No estaba', aviso: 'Avisó que no va', esperando: 'Esperando', pendiente: 'Pendiente' };
+
+function fmtEspera(seg) {
+  if (seg == null) return '-';
+  const m = Math.floor(seg / 60), s = seg % 60;
+  return m > 0 ? `${m}m ${String(s).padStart(2, '0')}s` : `${s}s`;
+}
 
 const COLOR = {
   headerBg:    'FF1E293B',
@@ -220,6 +226,7 @@ const COLOR = {
   recogido:    'FFD1FAE5',
   no_estaba:   'FFFEE2E2',
   aviso:       'FFEDE9FE',
+  esperando:   'FFFEF3C7',
   border:      'FFE2E8F0',
 };
 
@@ -287,8 +294,8 @@ async function construirExcel(titulo, filasResumen, filasDetalle, conFecha = fal
   const ws2 = wb.addWorksheet('Detalle pasajeros', { views: [{ state: 'frozen', ySplit: 2 }] });
 
   const colsDetalle = conFecha
-    ? [{ header: 'Fecha', width: 13 }, { header: 'Recorrido', width: 28 }, { header: 'Placa', width: 11 }, { header: 'Pasajero', width: 28 }, { header: 'Estado', width: 18 }, { header: 'Hora recogida', width: 14 }, { header: 'Hora llegada oficina', width: 20 }]
-    : [{ header: 'Recorrido', width: 28 }, { header: 'Placa', width: 11 }, { header: 'Pasajero', width: 28 }, { header: 'Estado', width: 18 }, { header: 'Hora recogida', width: 14 }, { header: 'Hora llegada oficina', width: 20 }];
+    ? [{ header: 'Fecha', width: 13 }, { header: 'Recorrido', width: 28 }, { header: 'Placa', width: 11 }, { header: 'Pasajero', width: 28 }, { header: 'Estado', width: 18 }, { header: 'Hora recogida', width: 14 }, { header: 'Espera', width: 10 }, { header: 'Hora llegada oficina', width: 20 }]
+    : [{ header: 'Recorrido', width: 28 }, { header: 'Placa', width: 11 }, { header: 'Pasajero', width: 28 }, { header: 'Estado', width: 18 }, { header: 'Hora recogida', width: 14 }, { header: 'Espera', width: 10 }, { header: 'Hora llegada oficina', width: 20 }];
 
   ws2.columns = colsDetalle;
 
@@ -307,8 +314,8 @@ async function construirExcel(titulo, filasResumen, filasDetalle, conFecha = fal
 
   filasDetalle.forEach(d => {
     const values = conFecha
-      ? [d.fecha, d.nombre, d.placa, d.pasajero, TIPO_LABEL[d.tipo] || d.tipo, d.hora || '-', d.hora_llegada || '-']
-      : [d.nombre, d.placa, d.pasajero, TIPO_LABEL[d.tipo] || d.tipo, d.hora || '-', d.hora_llegada || '-'];
+      ? [d.fecha, d.nombre, d.placa, d.pasajero, TIPO_LABEL[d.tipo] || d.tipo, d.hora || '-', fmtEspera(d.espera_seg), d.hora_llegada || '-']
+      : [d.nombre, d.placa, d.pasajero, TIPO_LABEL[d.tipo] || d.tipo, d.hora || '-', fmtEspera(d.espera_seg), d.hora_llegada || '-'];
     const row = ws2.addRow(values);
     styleDataRow(row, COLOR[d.tipo] || COLOR.pendiente);
   });
@@ -328,7 +335,7 @@ app.get('/api/admin/reporte/rango/xlsx', requireAdmin, async (req, res) => {
 
   const filas = await db.generarReporteRango(desde, hasta);
   const filasDetalle = filas.flatMap(r =>
-    r.detalle.map(p => ({ fecha: r.fecha, nombre: r.nombre, placa: r.placa, pasajero: p.nombre, tipo: p.tipo, hora: p.hora, hora_llegada: r.hora_llegada }))
+    r.detalle.map(p => ({ fecha: r.fecha, nombre: r.nombre, placa: r.placa, pasajero: p.nombre, tipo: p.tipo, hora: p.hora, espera_seg: p.espera_seg, hora_llegada: r.hora_llegada }))
   );
 
   const titulo = `Reporte de Recorridos — ${desde} al ${hasta}`;
@@ -344,7 +351,7 @@ app.get('/api/admin/reporte/:fecha/xlsx', requireAdmin, async (req, res) => {
   if (!reporte) return res.status(404).json({ error: 'Reporte no encontrado' });
 
   const filasDetalle = reporte.recorridos.flatMap(r =>
-    r.detalle.map(p => ({ nombre: r.nombre, placa: r.placa, pasajero: p.nombre, tipo: p.tipo, hora: p.hora, hora_llegada: r.hora_llegada }))
+    r.detalle.map(p => ({ nombre: r.nombre, placa: r.placa, pasajero: p.nombre, tipo: p.tipo, hora: p.hora, espera_seg: p.espera_seg, hora_llegada: r.hora_llegada }))
   );
 
   const titulo = `Reporte de Recorridos — ${reporte.fecha}   (generado: ${reporte.generado})`;
@@ -390,6 +397,26 @@ io.on('connection', (socket) => {
     }
   });
 
+  socket.on('iniciar_espera', async ({ sesion_id, pasajero_id, codigo }) => {
+    try {
+      const estado = await db.iniciarEspera(sesion_id, pasajero_id);
+      if (!estado) return;
+      broadcastActualizacion(codigo, estado);
+    } catch (err) {
+      console.error('iniciar_espera:', err.message);
+    }
+  });
+
+  // El cliente avisa que su cuenta regresiva llegó a 0; el servidor valida
+  // contra espera_inicio (no se puede expirar antes de tiempo)
+  socket.on('expirar_espera', async () => {
+    try {
+      await expirarEsperasPendientes();
+    } catch (err) {
+      console.error('expirar_espera:', err.message);
+    }
+  });
+
   socket.on('llegar_oficina', async ({ sesion_id, codigo }) => {
     try {
       const horaLlegada = hora();
@@ -424,6 +451,19 @@ async function broadcastActualizacion(codigo, estadoRecorrido) {
   io.to('dashboard').emit('estado_completo', await db.getEstadoTodos());
 }
 
+// Esperas de más de 3 min → "no estaba". Corre cuando un cliente avisa que
+// venció su cuenta regresiva y también cada 15s como respaldo (por si el
+// chofer cerró la app o se quedó sin conexión).
+async function expirarEsperasPendientes() {
+  const codigos = await db.expirarEsperas(hora());
+  if (!codigos.length) return;
+  for (const codigo of codigos) {
+    const estado = await db.getEstadoRecorrido(codigo);
+    if (estado) io.to(`r:${codigo}`).emit('estado_recorrido', estado);
+  }
+  io.to('dashboard').emit('estado_completo', await db.getEstadoTodos());
+}
+
 function hora() {
   return new Date().toLocaleTimeString('es-PE', {
     hour: '2-digit', minute: '2-digit', second: '2-digit',
@@ -437,6 +477,10 @@ function hora() {
 const PORT = process.env.PORT || 3000;
 
 db.initDB().then(() => {
+  setInterval(() => {
+    expirarEsperasPendientes().catch(err => console.error('sweep esperas:', err.message));
+  }, 15000);
+
   httpServer.listen(PORT, '0.0.0.0', () => {
     const { networkInterfaces } = require('os');
     const nets = networkInterfaces();
