@@ -191,6 +191,14 @@ module.exports = {
     await pool.query('UPDATE recorridos SET activo = FALSE WHERE id = $1', [parseInt(id)]);
   },
 
+  async editarRecorrido(id, nombre) {
+    await pool.query('UPDATE recorridos SET nombre = $1 WHERE id = $2', [nombre, parseInt(id)]);
+  },
+
+  async editarPasajero(id, nombre) {
+    await pool.query('UPDATE pasajeros SET nombre = $1 WHERE id = $2', [nombre, parseInt(id)]);
+  },
+
   async getAllRecorridosConPasajeros() {
     const { rows: recorridos } = await pool.query(
       'SELECT * FROM recorridos WHERE activo = TRUE ORDER BY nombre'
