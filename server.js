@@ -149,6 +149,14 @@ app.post('/api/admin/recorrido', requireAdmin, async (req, res) => {
   }
 });
 
+app.put('/api/admin/recorrido/:id', requireAdmin, async (req, res) => {
+  const { nombre } = req.body;
+  if (!nombre?.trim()) return res.status(400).json({ error: 'El nombre es requerido' });
+  await db.editarRecorrido(req.params.id, nombre.trim());
+  io.emit('estado_completo', await db.getEstadoTodos());
+  res.json({ ok: true });
+});
+
 app.delete('/api/admin/recorrido/:id', requireAdmin, async (req, res) => {
   await db.eliminarRecorrido(req.params.id);
   io.emit('estado_completo', await db.getEstadoTodos());
@@ -161,6 +169,14 @@ app.post('/api/admin/pasajero', requireAdmin, async (req, res) => {
     return res.status(400).json({ error: 'Nombre y recorrido son requeridos' });
   const id = await db.crearPasajero(nombre.trim(), recorrido_id);
   res.json({ id });
+});
+
+app.put('/api/admin/pasajero/:id', requireAdmin, async (req, res) => {
+  const { nombre } = req.body;
+  if (!nombre?.trim()) return res.status(400).json({ error: 'El nombre es requerido' });
+  await db.editarPasajero(req.params.id, nombre.trim());
+  io.emit('estado_completo', await db.getEstadoTodos());
+  res.json({ ok: true });
 });
 
 app.delete('/api/admin/pasajero/:id', requireAdmin, async (req, res) => {
@@ -220,6 +236,22 @@ app.post('/api/gestion/pasajero', requireGestion, async (req, res) => {
   const id = await db.crearPasajero(nombre.trim(), recorrido_id);
   io.emit('estado_completo', await db.getEstadoTodos());
   res.json({ id });
+});
+
+app.put('/api/gestion/recorrido/:id', requireGestion, async (req, res) => {
+  const { nombre } = req.body;
+  if (!nombre?.trim()) return res.status(400).json({ error: 'El nombre es requerido' });
+  await db.editarRecorrido(req.params.id, nombre.trim());
+  io.emit('estado_completo', await db.getEstadoTodos());
+  res.json({ ok: true });
+});
+
+app.put('/api/gestion/pasajero/:id', requireGestion, async (req, res) => {
+  const { nombre } = req.body;
+  if (!nombre?.trim()) return res.status(400).json({ error: 'El nombre es requerido' });
+  await db.editarPasajero(req.params.id, nombre.trim());
+  io.emit('estado_completo', await db.getEstadoTodos());
+  res.json({ ok: true });
 });
 
 app.delete('/api/gestion/pasajero/:id', requireGestion, async (req, res) => {
