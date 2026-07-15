@@ -122,6 +122,16 @@ async function initDB() {
 
     -- Observación del chofer al llegar a la oficina
     ALTER TABLE sesiones ADD COLUMN IF NOT EXISTS observacion TEXT;
+
+    -- Usuarios del panel de gestión (alta de choferes y pasajeros)
+    CREATE TABLE IF NOT EXISTS usuarios_gestion (
+      id         SERIAL PRIMARY KEY,
+      usuario    TEXT NOT NULL,
+      clave_hash TEXT NOT NULL,
+      activo     BOOLEAN DEFAULT TRUE
+    );
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_usuarios_gestion_usuario
+      ON usuarios_gestion(usuario) WHERE activo = TRUE;
   `);
   console.log('  Base de datos inicializada correctamente');
 }
@@ -130,6 +140,39 @@ async function initDB() {
 
 module.exports = {
   initDB,
+
+  // ─── Usuarios de gestión ──────────────────────────────────────────────────
+
+  async crearUsuarioGestion(usuario, clave_hash) {
+    try {
+      const { rows } = await pool.query(
+        'INSERT INTO usuarios_gestion (usuario, clave_hash) VALUES ($1, $2) RETURNING id',
+        [usuario, clave_hash]
+      );
+      return rows[0].id;
+    } catch (err) {
+      if (err.code === '23505') throw new Error('Usuario duplicado');
+      throw err;
+    }
+  },
+
+  async listarUsuariosGestion() {
+    const { rows } = await pool.query(
+      'SELECT id, usuario FROM usuarios_gestion WHERE activo = TRUE ORDER BY usuario'
+    );
+    return rows;
+  },
+
+  async eliminarUsuarioGestion(id) {
+    await pool.query('UPDATE usuarios_gestion SET activo = FALSE WHERE id = $1', [parseInt(id)]);
+  },
+
+  async getUsuarioGestion(usuario) {
+    const { rows } = await pool.query(
+      'SELECT * FROM usuarios_gestion WHERE usuario = $1 AND activo = TRUE', [usuario]
+    );
+    return rows[0] || null;
+  },
 
   async crearRecorrido(nombre, codigo) {
     try {
