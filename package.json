@@ -4,7 +4,8 @@
   "description": "Sistema de seguimiento de recorridos en tiempo real",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "test": "node test/run-all.js"
   },
   "engines": {
     "node": ">=18.0.0"
@@ -17,5 +18,8 @@
     "multer": "^2.2.0",
     "pg": "^8.22.0",
     "socket.io": "^4.7.2"
+  },
+  "devDependencies": {
+    "jsdom": "^29.1.1"
   }
 }

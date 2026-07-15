@@ -8,6 +8,7 @@ const ExcelJS = require('exceljs');
 const rateLimit = require('express-rate-limit');
 const multer = require('multer');
 const db = require('./db');
+const { parsearRecorridosExcel } = require('./importar');
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
 
@@ -125,44 +126,8 @@ app.delete('/api/admin/pasajero/:id', requireAdmin, async (req, res) => {
 app.post('/api/admin/importar', requireAdmin, upload.single('archivo'), async (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'No se recibió ningún archivo' });
   try {
-    const wb = new ExcelJS.Workbook();
-    await wb.xlsx.load(req.file.buffer);
-    const ws = wb.worksheets[0];
-    if (!ws) return res.status(400).json({ error: 'El archivo está vacío' });
-
-    // Leer todas las filas como arrays (0-indexed)
-    const filas = [];
-    ws.eachRow(row => filas.push(row.values.slice(1)));
-
-    // Detectar columnas de inicio de recorrido: donde aparece "N°"
-    const gruposSet = new Set();
-    filas.forEach(r => {
-      r.forEach((cell, idx) => {
-        if (String(cell ?? '').trim() === 'N°') gruposSet.add(idx);
-      });
-    });
-    const grupos = [...gruposSet].sort((a, b) => a - b);
-    if (!grupos.length) return res.status(400).json({ error: 'Formato no reconocido: no se encontraron recorridos' });
-
-    // Parsear cada grupo de columnas: [N°/num, nombre, placa/barrio]
-    const recorridos = [];
-    for (const col of grupos) {
-      let nombre = null, placa = null, pasajeros = [];
-      for (const fila of filas) {
-        const c0 = fila[col];
-        const c1 = String(fila[col + 1] ?? '').trim();
-        const c2 = String(fila[col + 2] ?? '').trim();
-        if (String(c0 ?? '').trim() === 'N°') {
-          if (nombre) recorridos.push({ nombre, placa, pasajeros });
-          nombre = c1; placa = c2; pasajeros = [];
-        } else if (typeof c0 === 'number' && c1) {
-          pasajeros.push(c1);
-        }
-      }
-      if (nombre) recorridos.push({ nombre, placa, pasajeros });
-    }
-
-    if (!recorridos.length) return res.status(400).json({ error: 'No se encontraron recorridos en el archivo' });
+    const { error, recorridos } = await parsearRecorridosExcel(req.file.buffer);
+    if (error) return res.status(400).json({ error });
     const resultado = await db.importarRecorridos(recorridos);
     io.emit('estado_completo', await db.getEstadoTodos());
     res.json(resultado);
