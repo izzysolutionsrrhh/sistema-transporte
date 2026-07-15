@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Admin - Recorridos</title>
+  <title>Gestión de Choferes - Recorridos</title>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -81,20 +81,20 @@
     .btn-login:disabled { opacity: 0.5; cursor: not-allowed; }
     .login-error { color: #f87171; font-size: 13px; text-align: center; min-height: 18px; margin-top: 10px; }
 
-    /* ── PANEL ADMIN ────────────────────────────────── */
-    #screen-admin { display: none; }
+    /* ── PANEL ──────────────────────────────────────── */
+    #screen-gestion { display: none; }
 
     header {
       background: #1e293b; color: white; padding: 16px 24px;
       display: flex; align-items: center; justify-content: space-between;
+      flex-wrap: wrap; gap: 8px;
     }
     header h1 { font-size: 18px; font-weight: 700; }
-    header nav a { color: #94a3b8; text-decoration: none; font-size: 14px; margin-left: 20px; }
-    header nav a:hover { color: white; }
+    .header-usuario { color: #94a3b8; font-size: 13px; margin-right: 16px; }
     .btn-logout {
       background: transparent; color: #f87171; border: 1px solid #f87171;
       padding: 6px 14px; font-size: 13px; font-weight: 700;
-      border-radius: 6px; cursor: pointer; margin-left: 16px;
+      border-radius: 6px; cursor: pointer;
     }
     .btn-logout:hover { background: #f87171; color: white; }
 
@@ -109,11 +109,11 @@
     .form-row { display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end; }
     .form-group { display: flex; flex-direction: column; gap: 6px; flex: 1; min-width: 160px; }
     .form-group label { font-size: 13px; font-weight: 600; color: var(--muted); }
-    .form-group input, .form-group select {
+    .form-group input {
       padding: 10px 12px; border: 1px solid var(--borde); border-radius: 8px;
       font-size: 15px; outline: none; background: white;
     }
-    .form-group input:focus, .form-group select:focus { border-color: var(--azul); }
+    .form-group input:focus { border-color: var(--azul); }
 
     .btn {
       padding: 10px 20px; font-size: 14px; font-weight: 700; border: none;
@@ -122,11 +122,8 @@
     .btn:hover { opacity: 0.85; }
     .btn:disabled { opacity: 0.4; cursor: not-allowed; }
     .btn-azul { background: var(--azul); color: white; }
-    .btn-rojo { background: var(--rojo); color: white; }
     .btn-rojo-sm { background: transparent; color: var(--rojo); border: 1px solid var(--rojo); padding: 5px 10px; font-size: 12px; border-radius: 6px; cursor: pointer; }
-    .btn-naranja-sm { background: transparent; color: #d97706; border: 1px solid #d97706; padding: 5px 10px; font-size: 12px; border-radius: 6px; cursor: pointer; }
     .btn-rojo-sm:hover { background: var(--rojo); color: white; }
-    .btn-naranja-sm:hover { background: #d97706; color: white; }
 
     .error-msg { color: var(--rojo); font-size: 13px; margin-top: 8px; min-height: 18px; }
 
@@ -154,12 +151,6 @@
     .form-agregar input { flex: 1; padding: 8px 12px; border: 1px solid var(--borde); border-radius: 8px; font-size: 14px; outline: none; }
     .form-agregar input:focus { border-color: var(--azul); }
     .vacío { color: var(--muted); font-size: 14px; padding: 8px 0; }
-
-    /* ── REPORTES ───────────────────────────────────── */
-    .reporte-item { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; background: #f8fafc; border-radius: 8px; margin-bottom: 8px; font-size: 14px; }
-    .reporte-item .reporte-fecha { font-weight: 700; }
-    .btn-csv { background: #16a34a; color: white; padding: 6px 14px; font-size: 13px; font-weight: 700; border: none; border-radius: 6px; cursor: pointer; text-decoration: none; display: inline-block; }
-    .btn-csv:hover { opacity: 0.85; }
 
     /* ── TOAST ──────────────────────────────────────── */
     #toast {
@@ -189,7 +180,7 @@
 <!-- ── LOGIN ─────────────────────────────────────────────── -->
 <div id="screen-login">
   <div class="login-card">
-    <h2>⚙️ Administración</h2>
+    <h2>👥 Gestión de Choferes</h2>
     <p>Ingresá tus credenciales para continuar</p>
     <div class="login-field">
       <label>Usuario</label>
@@ -206,41 +197,26 @@
   </div>
 </div>
 
-<!-- ── PANEL ADMIN ──────────────────────────────────────── -->
-<div id="screen-admin">
+<!-- ── PANEL GESTIÓN ────────────────────────────────────── -->
+<div id="screen-gestion">
 
 <header>
-  <h1>⚙️ Panel de Administración</h1>
-  <nav>
-    <a href="/dashboard.html" target="_blank">📊 Dashboard</a>
-    <a href="/chofer.html" target="_blank">🚌 App Chofer</a>
-    <a href="/gestion.html" target="_blank">👥 Gestión</a>
+  <h1>👥 Gestión de Choferes</h1>
+  <nav style="display:flex;align-items:center">
+    <span class="header-usuario" id="header-usuario"></span>
     <button class="btn-logout" onclick="doLogout()">Cerrar sesión</button>
   </nav>
 </header>
 
 <div class="container">
-  <h2>Gestión de Recorridos</h2>
+  <h2>Choferes y Pasajeros</h2>
 
-  <!-- Importar desde Excel -->
+  <!-- Crear chofer / recorrido -->
   <div class="card">
-    <h3>📥 Importar desde Excel</h3>
-    <p style="font-size:13px;color:var(--muted);margin-bottom:12px">
-      Subí un archivo <strong>.xlsx</strong> con columnas: <code>recorrido</code>, <code>placa</code>, <code>pasajero1</code>, <code>pasajero2</code>…
-    </p>
-    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
-      <input id="input-importar" type="file" accept=".xlsx" style="font-size:14px;flex:1;min-width:0">
-      <button class="btn btn-azul" onclick="importarExcel()" style="white-space:nowrap">📥 Importar</button>
-    </div>
-    <div id="resultado-importar" style="margin-top:12px;font-size:14px;display:none"></div>
-  </div>
-
-  <!-- Crear recorrido -->
-  <div class="card">
-    <h3>➕ Nuevo Recorrido</h3>
+    <h3>➕ Nuevo Chofer</h3>
     <div class="form-row">
       <div class="form-group">
-        <label>Nombre del recorrido</label>
+        <label>Nombre del recorrido / chofer</label>
         <input id="nuevo-nombre" type="text" placeholder="Ej: Recorrido Norte">
       </div>
       <div class="form-group" style="max-width:140px">
@@ -252,80 +228,19 @@
     <div class="error-msg" id="error-crear"></div>
   </div>
 
-  <!-- Lista de recorridos -->
+  <!-- Lista de choferes con sus pasajeros -->
   <div class="card">
-    <h3>🚌 Recorridos Configurados</h3>
+    <h3>🚌 Choferes Registrados</h3>
     <div id="lista-recorridos"><div class="vacío">Cargando...</div></div>
-  </div>
-
-  <!-- Reportes diarios -->
-  <div class="card">
-    <h3>📊 Reportes</h3>
-    <p style="font-size:14px;color:var(--muted);margin-bottom:16px">
-      Elegí un rango de fechas. Si es el mismo día, el reporte se guarda en la lista.
-      Si es un rango, descarga directo sin guardar.
-    </p>
-    <div class="form-row" style="margin-bottom:16px;align-items:flex-end">
-      <div class="form-group" style="max-width:180px">
-        <label>Desde</label>
-        <input type="date" id="fecha-desde">
-      </div>
-      <div class="form-group" style="max-width:180px">
-        <label>Hasta</label>
-        <input type="date" id="fecha-hasta">
-      </div>
-      <button class="btn btn-azul" onclick="generarReporte()">Generar / Descargar</button>
-    </div>
-    <div id="lista-reportes"><div class="vacío">Cargando...</div></div>
-  </div>
-
-  <!-- Usuarios de gestión -->
-  <div class="card">
-    <h3>👥 Usuarios de Gestión</h3>
-    <p style="font-size:14px;color:var(--muted);margin-bottom:16px">
-      Estos usuarios pueden entrar a <a href="/gestion.html" target="_blank">gestion.html</a>,
-      una página solo para dar de alta choferes y sus pasajeros (sin reportes ni configuración).
-    </p>
-    <div class="form-row" style="margin-bottom:16px">
-      <div class="form-group">
-        <label>Usuario</label>
-        <input id="nuevo-usuario" type="text" placeholder="Ej: maria" autocomplete="off">
-      </div>
-      <div class="form-group">
-        <label>Contraseña (mín. 6 caracteres)</label>
-        <input id="nueva-clave" type="text" placeholder="Contraseña" autocomplete="off"
-               onkeydown="if(event.key==='Enter') crearUsuario()">
-      </div>
-      <button class="btn btn-azul" onclick="crearUsuario()">Crear usuario</button>
-    </div>
-    <div class="error-msg" id="error-usuario"></div>
-    <div id="lista-usuarios"><div class="vacío">Cargando...</div></div>
-  </div>
-
-  <!-- Reset sesiones -->
-  <div class="card">
-    <h3>🔄 Reiniciar Sesión de Hoy</h3>
-    <p style="font-size:14px;color:var(--muted);margin-bottom:12px">
-      Usa esto si necesitás reiniciar el estado de un recorrido para el día de hoy (borra los registros de retiro y llegada de hoy).
-    </p>
-    <div class="form-row">
-      <div class="form-group">
-        <label>Recorrido a reiniciar</label>
-        <select id="select-reset">
-          <option value="">Seleccioná un recorrido...</option>
-        </select>
-      </div>
-      <button class="btn btn-rojo" onclick="resetSesion()">Reiniciar</button>
-    </div>
   </div>
 </div>
 
 <div id="toast"></div>
 
-</div> <!-- /screen-admin -->
+</div> <!-- /screen-gestion -->
 
 <script>
-  let adminToken = sessionStorage.getItem('adminToken') || '';
+  let gestionToken = sessionStorage.getItem('gestionToken') || '';
   let recorridos = [];
 
   // ── MODAL ──────────────────────────────────────────
@@ -350,20 +265,16 @@
   });
 
   // ── AUTH ──────────────────────────────────────────
-  function adminHeaders(extra) {
-    return { 'Content-Type': 'application/json', 'x-admin-token': adminToken, ...extra };
-  }
-
   // Wrapper que detecta 401 y fuerza re-login
-  async function adminFetch(url, opts = {}) {
+  async function gestionFetch(url, opts = {}) {
     const res = await fetch(url, {
-      headers: { 'Content-Type': 'application/json', 'x-admin-token': adminToken },
+      headers: { 'Content-Type': 'application/json', 'x-gestion-token': gestionToken },
       ...opts,
     });
     if (res.status === 401) {
-      sessionStorage.removeItem('adminToken');
-      adminToken = '';
-      document.getElementById('screen-admin').style.display = 'none';
+      sessionStorage.removeItem('gestionToken');
+      gestionToken = '';
+      document.getElementById('screen-gestion').style.display = 'none';
       document.getElementById('screen-login').style.display = 'flex';
       document.getElementById('login-error').textContent = 'Tu sesión expiró. Iniciá sesión nuevamente.';
       return null;
@@ -380,62 +291,63 @@
     btn.disabled = true; btn.textContent = 'Ingresando...';
     errEl.textContent = '';
     try {
-      const res = await fetch('/api/admin/login', {
+      const res = await fetch('/api/gestion/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ usuario, clave }),
       });
       const data = await res.json();
       if (!res.ok) { errEl.textContent = data.error || 'Error al ingresar'; return; }
-      adminToken = data.token;
-      sessionStorage.setItem('adminToken', adminToken);
-      mostrarAdmin();
+      gestionToken = data.token;
+      sessionStorage.setItem('gestionToken', gestionToken);
+      sessionStorage.setItem('gestionUsuario', data.usuario || usuario);
+      mostrarPanel();
     } finally {
       btn.disabled = false; btn.textContent = 'Ingresar';
     }
   }
 
   async function doLogout() {
-    await fetch('/api/admin/logout', { method: 'POST', headers: adminHeaders() }).catch(() => {});
-    sessionStorage.removeItem('adminToken');
-    adminToken = '';
-    document.getElementById('screen-admin').style.display = 'none';
+    await fetch('/api/gestion/logout', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-gestion-token': gestionToken },
+    }).catch(() => {});
+    sessionStorage.removeItem('gestionToken');
+    sessionStorage.removeItem('gestionUsuario');
+    gestionToken = '';
+    document.getElementById('screen-gestion').style.display = 'none';
     document.getElementById('screen-login').style.display = 'flex';
     document.getElementById('login-clave').value = '';
     document.getElementById('login-error').textContent = '';
   }
 
-  function mostrarAdmin() {
+  function mostrarPanel() {
     document.getElementById('screen-login').style.display = 'none';
-    document.getElementById('screen-admin').style.display = 'block';
+    document.getElementById('screen-gestion').style.display = 'block';
+    const usuario = sessionStorage.getItem('gestionUsuario');
+    document.getElementById('header-usuario').textContent = usuario ? `Usuario: ${usuario}` : '';
     cargarRecorridos();
-    cargarReportes();
-    cargarUsuarios();
-    const hoy = new Date().toISOString().slice(0, 10);
-    document.getElementById('fecha-desde').value = hoy;
-    document.getElementById('fecha-hasta').value = hoy;
   }
 
   // Verificar sesión al cargar
   (async () => {
-    if (!adminToken) return;
-    const res = await adminFetch('/api/admin/recorridos');
-    if (res?.ok) mostrarAdmin();
+    if (!gestionToken) return;
+    const res = await gestionFetch('/api/gestion/recorridos');
+    if (res?.ok) mostrarPanel();
   })();
 
-  // ── RECORRIDOS ────────────────────────────────────
+  // ── CHOFERES / RECORRIDOS ─────────────────────────
   async function cargarRecorridos() {
-    const res = await adminFetch('/api/admin/recorridos');
+    const res = await gestionFetch('/api/gestion/recorridos');
     if (!res) return;
     recorridos = await res.json();
     renderizarRecorridos();
-    actualizarSelectReset();
   }
 
   function renderizarRecorridos() {
     const lista = document.getElementById('lista-recorridos');
     if (!recorridos.length) {
-      lista.innerHTML = '<div class="vacío">No hay recorridos. Creá uno arriba.</div>';
+      lista.innerHTML = '<div class="vacío">No hay choferes. Creá uno arriba.</div>';
       return;
     }
 
@@ -453,7 +365,6 @@
           </div>
           <div class="recorrido-acciones">
             <span class="badge-count">${r.pasajeros.length} persona${r.pasajeros.length !== 1 ? 's' : ''}</span>
-            <button class="btn-rojo-sm" onclick="event.stopPropagation();eliminarRecorrido(${r.id})">Eliminar</button>
             <span class="chevron" id="chevron-${r.id}">▼</span>
           </div>
         </div>
@@ -490,9 +401,9 @@
     const nombre = document.getElementById('nuevo-nombre').value.trim();
     const codigo = document.getElementById('nuevo-codigo').value.trim().toUpperCase();
     const err    = document.getElementById('error-crear');
-    if (!nombre || !codigo) { err.textContent = 'Completá el nombre y el código'; return; }
+    if (!nombre || !codigo) { err.textContent = 'Completá el nombre y la placa'; return; }
 
-    const res = await adminFetch('/api/admin/recorrido', {
+    const res = await gestionFetch('/api/gestion/recorrido', {
       method: 'POST',
       body: JSON.stringify({ nombre, codigo }),
     });
@@ -507,22 +418,8 @@
     err.textContent = '';
     document.getElementById('nuevo-nombre').value = '';
     document.getElementById('nuevo-codigo').value = '';
-    toast('Recorrido creado');
+    toast('Chofer creado');
     await cargarRecorridos();
-  }
-
-  async function eliminarRecorrido(id) {
-    const r = recorridos.find(x => x.id === id);
-    confirmar(
-      'Eliminar recorrido',
-      `¿Eliminar "${r?.nombre}"? Esta acción no se puede deshacer.`,
-      async () => {
-        const res = await adminFetch(`/api/admin/recorrido/${id}`, { method: 'DELETE' });
-        if (!res) return;
-        toast('Recorrido eliminado');
-        await cargarRecorridos();
-      }
-    );
   }
 
   async function agregarPasajero(recorrido_id) {
@@ -530,7 +427,7 @@
     const nombre = input.value.trim();
     if (!nombre) return;
 
-    const res = await adminFetch('/api/admin/pasajero', {
+    const res = await gestionFetch('/api/gestion/pasajero', {
       method: 'POST',
       body: JSON.stringify({ nombre, recorrido_id }),
     });
@@ -552,7 +449,7 @@
       `¿Quitar a "${p?.nombre}" del recorrido?`,
       async () => {
         const estabaAbierto = document.getElementById(`panel-${recorrido_id}`)?.classList.contains('abierto');
-        const res = await adminFetch(`/api/admin/pasajero/${id}`, { method: 'DELETE' });
+        const res = await gestionFetch(`/api/gestion/pasajero/${id}`, { method: 'DELETE' });
         if (!res) return;
         toast('Persona eliminada');
         await cargarRecorridos();
@@ -560,91 +457,6 @@
           const panel = document.getElementById(`panel-${recorrido_id}`);
           if (panel && !panel.classList.contains('abierto')) togglePanel(recorrido_id);
         }
-      }
-    );
-  }
-
-  function actualizarSelectReset() {
-    const select = document.getElementById('select-reset');
-    select.innerHTML = '<option value="">Seleccioná un recorrido...</option>';
-    recorridos.forEach(r => {
-      const opt = document.createElement('option');
-      opt.value = r.id;
-      opt.textContent = `${r.nombre} (${r.codigo})`;
-      select.appendChild(opt);
-    });
-  }
-
-  async function resetSesion() {
-    const recorrido_id = document.getElementById('select-reset').value;
-    if (!recorrido_id) { toast('Seleccioná un recorrido'); return; }
-    const r = recorridos.find(x => x.id == recorrido_id);
-    confirmar(
-      'Reiniciar sesión',
-      `¿Reiniciar la sesión de hoy para "${r?.nombre}"? Se borrarán todos los registros de hoy.`,
-      async () => {
-        const res = await adminFetch('/api/admin/reset', {
-          method: 'POST',
-          body: JSON.stringify({ recorrido_id: parseInt(recorrido_id) }),
-        });
-        if (!res) return;
-        toast('Sesión reiniciada');
-      }
-    );
-  }
-
-  // ── USUARIOS DE GESTIÓN ───────────────────────────
-  async function cargarUsuarios() {
-    const res = await adminFetch('/api/admin/usuarios');
-    if (!res) return;
-    const usuarios = await res.json();
-    const lista = document.getElementById('lista-usuarios');
-    if (!usuarios.length) {
-      lista.innerHTML = '<div class="vacío">No hay usuarios de gestión todavía.</div>';
-      return;
-    }
-    lista.innerHTML = usuarios.map(u => `
-      <div class="reporte-item">
-        <div><strong>👤 ${esc(u.usuario)}</strong></div>
-        <button class="btn-rojo-sm" onclick="eliminarUsuario(${u.id}, '${esc(u.usuario).replace(/'/g, '&#39;')}')">Eliminar</button>
-      </div>`).join('');
-  }
-
-  async function crearUsuario() {
-    const usuario = document.getElementById('nuevo-usuario').value.trim();
-    const clave   = document.getElementById('nueva-clave').value;
-    const err     = document.getElementById('error-usuario');
-    if (!usuario || !clave) { err.textContent = 'Completá usuario y contraseña'; return; }
-    if (clave.length < 6)   { err.textContent = 'La contraseña debe tener al menos 6 caracteres'; return; }
-
-    const res = await adminFetch('/api/admin/usuario', {
-      method: 'POST',
-      body: JSON.stringify({ usuario, clave }),
-    });
-    if (!res) return;
-
-    if (!res.ok) {
-      const data = await res.json();
-      err.textContent = data.error || 'Error al crear el usuario';
-      return;
-    }
-
-    err.textContent = '';
-    document.getElementById('nuevo-usuario').value = '';
-    document.getElementById('nueva-clave').value = '';
-    toast(`Usuario "${usuario}" creado`);
-    await cargarUsuarios();
-  }
-
-  async function eliminarUsuario(id, usuario) {
-    confirmar(
-      'Eliminar usuario',
-      `¿Eliminar el usuario "${usuario}"? Ya no podrá entrar a la página de gestión.`,
-      async () => {
-        const res = await adminFetch(`/api/admin/usuario/${id}`, { method: 'DELETE' });
-        if (!res) return;
-        toast('Usuario eliminado');
-        await cargarUsuarios();
       }
     );
   }
@@ -660,130 +472,6 @@
 
   function esc(str) {
     return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-  }
-
-  async function importarExcel() {
-    const input     = document.getElementById('input-importar');
-    const resultado = document.getElementById('resultado-importar');
-    if (!input.files[0]) { toast('Seleccioná un archivo primero'); return; }
-
-    const formData = new FormData();
-    formData.append('archivo', input.files[0]);
-    resultado.style.display = 'none';
-
-    try {
-      const res = await fetch('/api/admin/importar', {
-        method: 'POST',
-        headers: { 'x-admin-token': adminToken },
-        body: formData,
-      });
-      if (res.status === 401) { adminFetch('/api/admin/importar'); return; }
-      const data = await res.json();
-      if (!res.ok) { toast(data.error || 'Error al importar'); return; }
-
-      let html = `<div style="color:#14532d;background:#dcfce7;padding:10px;border-radius:8px;margin-bottom:8px">
-        ✅ <strong>${data.recorridosCreados}</strong> recorrido${data.recorridosCreados !== 1 ? 's' : ''} creado${data.recorridosCreados !== 1 ? 's' : ''} ·
-        <strong>${data.pasajerosCreados}</strong> pasajero${data.pasajerosCreados !== 1 ? 's' : ''} agregado${data.pasajerosCreados !== 1 ? 's' : ''}
-      </div>`;
-      if (data.errores?.length) {
-        html += `<div style="color:#991b1b;background:#fee2e2;padding:10px;border-radius:8px;font-size:13px">
-          ${data.errores.map(e => `⚠️ ${e}`).join('<br>')}
-        </div>`;
-      }
-      resultado.innerHTML = html;
-      resultado.style.display = 'block';
-      input.value = '';
-      cargarRecorridos();
-      cargarEstadoDia();
-    } catch {
-      toast('Error de conexión al importar');
-    }
-  }
-
-  async function descargarReporte(fecha) {
-    const res = await fetch(`/api/admin/reporte/${fecha}/xlsx`, {
-      headers: { 'x-admin-token': adminToken },
-    });
-    if (res.status === 401) { adminFetch('/health'); return; }
-    if (!res.ok) { toast('Error al descargar'); return; }
-    const blob = await res.blob();
-    const url  = URL.createObjectURL(blob);
-    const a    = document.createElement('a');
-    a.href = url; a.download = `reporte-${fecha}.xlsx`; a.click();
-    URL.revokeObjectURL(url);
-  }
-
-  async function cargarReportes() {
-    const res = await adminFetch('/api/admin/reportes');
-    if (!res) return;
-    const fechas = await res.json();
-    const lista  = document.getElementById('lista-reportes');
-    if (!fechas.length) { lista.innerHTML = '<div class="vacío">No hay reportes guardados todavía.</div>'; return; }
-    lista.innerHTML = fechas.map(fecha => {
-      const [anio, mes, dia] = fecha.split('-');
-      return `<div class="reporte-item">
-        <div><div class="reporte-fecha">📄 ${dia}/${mes}/${anio}</div></div>
-        <div style="display:flex;gap:8px;align-items:center">
-          <button class="btn-csv" onclick="descargarReporte('${fecha}')">⬇ Descargar</button>
-          <button class="btn-rojo-sm" onclick="eliminarReporte('${fecha}')">🗑 Eliminar</button>
-        </div>
-      </div>`;
-    }).join('');
-  }
-
-  async function eliminarReporte(fecha) {
-    const [a, m, d] = fecha.split('-');
-    confirmar(
-      'Eliminar reporte',
-      `¿Eliminar el reporte del ${d}/${m}/${a}? No se puede deshacer.`,
-      async () => {
-        const res = await adminFetch(`/api/admin/reporte/${fecha}`, { method: 'DELETE' });
-        if (!res) return;
-        toast('Reporte eliminado');
-        await cargarReportes();
-      }
-    );
-  }
-
-  async function generarReporte() {
-    const desde = document.getElementById('fecha-desde').value;
-    const hasta = document.getElementById('fecha-hasta').value;
-    if (!desde || !hasta) { toast('Completá las dos fechas'); return; }
-    if (desde > hasta) { toast('La fecha "Desde" no puede ser mayor a "Hasta"'); return; }
-
-    const btn = event.target;
-    btn.disabled = true; btn.textContent = 'Generando...';
-
-    try {
-      if (desde === hasta) {
-        // Día único → guardar en DB y mostrar en lista
-        const res = await adminFetch('/api/admin/reporte/generar', {
-          method: 'POST',
-          body: JSON.stringify({ fecha: desde }),
-        });
-        if (res) {
-          const [a, m, d] = desde.split('-');
-          toast(`Reporte del ${d}/${m}/${a} guardado`);
-          await cargarReportes();
-        }
-      } else {
-        // Rango → descargar directamente sin guardar
-        const res = await fetch(
-          `/api/admin/reporte/rango/xlsx?desde=${desde}&hasta=${hasta}`,
-          { headers: { 'x-admin-token': adminToken } }
-        );
-        if (res.status === 401) { adminFetch('/health'); return; }
-        if (!res.ok) { toast('Error al generar el reporte'); return; }
-        const blob = await res.blob();
-        const url  = URL.createObjectURL(blob);
-        const a    = document.createElement('a');
-        a.href = url; a.download = `reporte-${desde}-al-${hasta}.xlsx`; a.click();
-        URL.revokeObjectURL(url);
-        toast(`Reporte ${desde} → ${hasta} descargado`);
-      }
-    } finally {
-      btn.disabled = false; btn.textContent = 'Generar / Descargar';
-    }
   }
 </script>
 </body>

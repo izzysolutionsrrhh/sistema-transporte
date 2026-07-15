@@ -67,6 +67,52 @@ app.post('/api/admin/logout', requireAdmin, (req, res) => {
   res.json({ ok: true });
 });
 
+// ─── AUTH GESTIÓN (usuarios creados desde el panel admin) ────────────────────
+
+function hashClave(clave) {
+  const salt = crypto.randomBytes(16).toString('hex');
+  const hash = crypto.scryptSync(clave, salt, 64).toString('hex');
+  return `${salt}:${hash}`;
+}
+
+function verificarClave(clave, guardado) {
+  const [salt, hash] = guardado.split(':');
+  const calc = crypto.scryptSync(clave, salt, 64);
+  return crypto.timingSafeEqual(Buffer.from(hash, 'hex'), calc);
+}
+
+const gestionLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  message: { error: 'Demasiados intentos. Esperá 15 minutos.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+const gestionTokens = new Set();
+
+function requireGestion(req, res, next) {
+  const token = req.headers['x-gestion-token'];
+  if (!token || !gestionTokens.has(token)) return res.status(401).json({ error: 'No autorizado' });
+  next();
+}
+
+app.post('/api/gestion/login', gestionLimiter, async (req, res) => {
+  const { usuario, clave } = req.body;
+  if (!usuario || !clave) return res.status(400).json({ error: 'Usuario y clave son requeridos' });
+  const u = await db.getUsuarioGestion(usuario.trim());
+  if (!u || !verificarClave(clave, u.clave_hash))
+    return res.status(401).json({ error: 'Usuario o clave incorrectos' });
+  const token = crypto.randomBytes(32).toString('hex');
+  gestionTokens.add(token);
+  res.json({ token, usuario: u.usuario });
+});
+
+app.post('/api/gestion/logout', requireGestion, (req, res) => {
+  gestionTokens.delete(req.headers['x-gestion-token']);
+  res.json({ ok: true });
+});
+
 // ─── REST API ────────────────────────────────────────────────────────────────
 
 app.get('/health', (req, res) => res.json({ status: 'ok' }));
@@ -118,6 +164,65 @@ app.post('/api/admin/pasajero', requireAdmin, async (req, res) => {
 });
 
 app.delete('/api/admin/pasajero/:id', requireAdmin, async (req, res) => {
+  await db.eliminarPasajero(req.params.id);
+  io.emit('estado_completo', await db.getEstadoTodos());
+  res.json({ ok: true });
+});
+
+// ─── Usuarios de gestión (administrados desde el panel admin) ────────────────
+
+app.get('/api/admin/usuarios', requireAdmin, async (req, res) => {
+  res.json(await db.listarUsuariosGestion());
+});
+
+app.post('/api/admin/usuario', requireAdmin, async (req, res) => {
+  const { usuario, clave } = req.body;
+  if (!usuario?.trim() || !clave)
+    return res.status(400).json({ error: 'Usuario y clave son requeridos' });
+  if (clave.length < 6)
+    return res.status(400).json({ error: 'La clave debe tener al menos 6 caracteres' });
+  try {
+    const id = await db.crearUsuarioGestion(usuario.trim(), hashClave(clave));
+    res.json({ id });
+  } catch {
+    res.status(400).json({ error: 'Ese usuario ya existe' });
+  }
+});
+
+app.delete('/api/admin/usuario/:id', requireAdmin, async (req, res) => {
+  await db.eliminarUsuarioGestion(req.params.id);
+  res.json({ ok: true });
+});
+
+// ─── API de gestión (alta de choferes y pasajeros) ───────────────────────────
+
+app.get('/api/gestion/recorridos', requireGestion, async (req, res) => {
+  res.json(await db.getAllRecorridosConPasajeros());
+});
+
+app.post('/api/gestion/recorrido', requireGestion, async (req, res) => {
+  const { nombre, codigo } = req.body;
+  if (!nombre?.trim() || !codigo?.trim())
+    return res.status(400).json({ error: 'Nombre y placa son requeridos' });
+  try {
+    const id = await db.crearRecorrido(nombre.trim(), codigo.trim().toUpperCase());
+    io.emit('estado_completo', await db.getEstadoTodos());
+    res.json({ id });
+  } catch {
+    res.status(400).json({ error: 'Esa placa ya está en uso' });
+  }
+});
+
+app.post('/api/gestion/pasajero', requireGestion, async (req, res) => {
+  const { nombre, recorrido_id } = req.body;
+  if (!nombre?.trim() || !recorrido_id)
+    return res.status(400).json({ error: 'Nombre y recorrido son requeridos' });
+  const id = await db.crearPasajero(nombre.trim(), recorrido_id);
+  io.emit('estado_completo', await db.getEstadoTodos());
+  res.json({ id });
+});
+
+app.delete('/api/gestion/pasajero/:id', requireGestion, async (req, res) => {
   await db.eliminarPasajero(req.params.id);
   io.emit('estado_completo', await db.getEstadoTodos());
   res.json({ ok: true });
@@ -464,6 +569,8 @@ db.initDB().then(() => {
     console.log(`  http://${localIP}:${PORT}/chofer.html`);
     console.log(`\n  Panel admin:`);
     console.log(`  http://${localIP}:${PORT}/admin.html`);
+    console.log(`\n  Gestión de choferes:`);
+    console.log(`  http://${localIP}:${PORT}/gestion.html`);
     console.log('\n========================================\n');
   });
 }).catch(err => {

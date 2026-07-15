@@ -3,7 +3,7 @@ const fs = require('fs');
 const path = require('path');
 const { check, resumen } = require('./util');
 
-const paginas = ['chofer.html', 'dashboard.html', 'admin.html'];
+const paginas = ['chofer.html', 'dashboard.html', 'admin.html', 'gestion.html'];
 
 for (const pagina of paginas) {
   const html = fs.readFileSync(path.join(__dirname, '..', 'public', pagina), 'utf8');
