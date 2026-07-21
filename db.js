@@ -143,6 +143,19 @@ async function initDB() {
       creado_en TIMESTAMPTZ DEFAULT now()
     );
     ALTER TABLE recorridos ADD COLUMN IF NOT EXISTS empresa_id INTEGER REFERENCES empresas(id);
+    ALTER TABLE usuarios_gestion ADD COLUMN IF NOT EXISTS empresa_id INTEGER REFERENCES empresas(id);
+
+    -- Usuarios del panel admin, uno por empresa (reemplaza a futuro las env
+    -- vars ADMIN_USER/ADMIN_PASS). Mismo patron scrypt+salt que usuarios_gestion.
+    CREATE TABLE IF NOT EXISTS usuarios_admin (
+      id         SERIAL PRIMARY KEY,
+      empresa_id INTEGER REFERENCES empresas(id),
+      usuario    TEXT NOT NULL,
+      clave_hash TEXT NOT NULL,
+      activo     BOOLEAN DEFAULT TRUE
+    );
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_usuarios_admin_usuario
+      ON usuarios_admin(usuario) WHERE activo = TRUE;
   `);
   console.log('  Base de datos inicializada correctamente');
 }
