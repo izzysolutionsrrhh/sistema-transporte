@@ -215,6 +215,28 @@ module.exports = {
     return rows[0] || null;
   },
 
+  // ─── Usuarios admin (uno por empresa) ────────────────────────────────────
+
+  async getUsuarioAdmin(usuario) {
+    const { rows } = await pool.query(
+      'SELECT * FROM usuarios_admin WHERE usuario = $1 AND activo = TRUE', [usuario]
+    );
+    return rows[0] || null;
+  },
+
+  // Crea el primer admin de "Empresa Principal" a partir de ADMIN_USER/ADMIN_PASS,
+  // solo si todavia no existe ningun usuario_admin (idempotente, no pisa nada).
+  async bootstrapUsuarioAdmin(usuario, clave_hash) {
+    const { rows: existentes } = await pool.query('SELECT id FROM usuarios_admin LIMIT 1');
+    if (existentes.length) return;
+    const { rows: emp } = await pool.query("SELECT id FROM empresas WHERE slug = 'default'");
+    if (!emp[0]) return;
+    await pool.query(
+      'INSERT INTO usuarios_admin (empresa_id, usuario, clave_hash) VALUES ($1, $2, $3)',
+      [emp[0].id, usuario, clave_hash]
+    );
+  },
+
   async crearRecorrido(nombre, codigo) {
     try {
       const { rows } = await pool.query(

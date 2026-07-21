@@ -44,22 +44,25 @@ const loginLimiter = rateLimit({
   legacyHeaders: false,
 });
 
-const tokens = new Set();
+const tokens = new Map(); // token -> { empresa_id, usuario }
 
 function requireAdmin(req, res, next) {
   const token = req.headers['x-admin-token'];
-  if (!token || !tokens.has(token)) return res.status(401).json({ error: 'No autorizado' });
+  const info = token && tokens.get(token);
+  if (!info) return res.status(401).json({ error: 'No autorizado' });
+  req.empresa_id = info.empresa_id;
   next();
 }
 
-app.post('/api/admin/login', loginLimiter, (req, res) => {
+app.post('/api/admin/login', loginLimiter, async (req, res) => {
   const { usuario, clave } = req.body;
-  if (usuario === ADMIN_USER && clave === ADMIN_PASS) {
-    const token = crypto.randomBytes(32).toString('hex');
-    tokens.add(token);
-    return res.json({ token });
-  }
-  res.status(401).json({ error: 'Usuario o clave incorrectos' });
+  if (!usuario || !clave) return res.status(400).json({ error: 'Usuario y clave son requeridos' });
+  const u = await db.getUsuarioAdmin(usuario.trim());
+  if (!u || !verificarClave(clave, u.clave_hash))
+    return res.status(401).json({ error: 'Usuario o clave incorrectos' });
+  const token = crypto.randomBytes(32).toString('hex');
+  tokens.set(token, { empresa_id: u.empresa_id, usuario: u.usuario });
+  res.json({ token });
 });
 
 app.post('/api/admin/logout', requireAdmin, (req, res) => {
@@ -580,7 +583,9 @@ function hora() {
 
 const PORT = process.env.PORT || 3000;
 
-db.initDB().then(() => {
+db.initDB().then(async () => {
+  await db.bootstrapUsuarioAdmin(ADMIN_USER, hashClave(ADMIN_PASS));
+
   setInterval(() => {
     expirarEsperasPendientes().catch(err => console.error('sweep esperas:', err.message));
   }, 15000);
