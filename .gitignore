@@ -3,6 +3,8 @@ data.json
 reportes/
 .env
 ESTADO.md
+saas.md
+presupuesto-saas.xlsx
 plantilla-importacion.xlsx
 plantillarecorridos.xlsx
 ~$*.xlsx
