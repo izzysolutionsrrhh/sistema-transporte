@@ -9,6 +9,7 @@ const rateLimit = require('express-rate-limit');
 const multer = require('multer');
 const db = require('./db');
 const { parsearRecorridosExcel } = require('./importar');
+const { hashClave, verificarClave } = require('./auth');
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
 
@@ -71,18 +72,6 @@ app.post('/api/admin/logout', requireAdmin, (req, res) => {
 });
 
 // ─── AUTH GESTIÓN (usuarios creados desde el panel admin) ────────────────────
-
-function hashClave(clave) {
-  const salt = crypto.randomBytes(16).toString('hex');
-  const hash = crypto.scryptSync(clave, salt, 64).toString('hex');
-  return `${salt}:${hash}`;
-}
-
-function verificarClave(clave, guardado) {
-  const [salt, hash] = guardado.split(':');
-  const calc = crypto.scryptSync(clave, salt, 64);
-  return crypto.timingSafeEqual(Buffer.from(hash, 'hex'), calc);
-}
 
 const gestionLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
