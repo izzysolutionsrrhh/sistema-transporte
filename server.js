@@ -129,7 +129,7 @@ app.get('/api/recorrido/:codigo', async (req, res) => {
 });
 
 app.get('/api/dashboard', async (req, res) => {
-  res.json(await db.getEstadoTodos());
+  res.json(await db.getEstadoTodos(await db.getEmpresaIdPorDefecto()));
 });
 
 app.get('/api/chofer/:codigo/historial', async (req, res) => {
@@ -158,13 +158,13 @@ app.put('/api/admin/recorrido/:id', requireAdmin, async (req, res) => {
   const { nombre } = req.body;
   if (!nombre?.trim()) return res.status(400).json({ error: 'El nombre es requerido' });
   await db.editarRecorrido(req.params.id, nombre.trim(), req.empresa_id);
-  io.emit('estado_completo', await db.getEstadoTodos());
+  io.to(`empresa:${req.empresa_id}:dashboard`).emit('estado_completo', await db.getEstadoTodos(req.empresa_id));
   res.json({ ok: true });
 });
 
 app.delete('/api/admin/recorrido/:id', requireAdmin, async (req, res) => {
   await db.eliminarRecorrido(req.params.id, req.empresa_id);
-  io.emit('estado_completo', await db.getEstadoTodos());
+  io.to(`empresa:${req.empresa_id}:dashboard`).emit('estado_completo', await db.getEstadoTodos(req.empresa_id));
   res.json({ ok: true });
 });
 
@@ -184,13 +184,13 @@ app.put('/api/admin/pasajero/:id', requireAdmin, async (req, res) => {
   const { nombre } = req.body;
   if (!nombre?.trim()) return res.status(400).json({ error: 'El nombre es requerido' });
   await db.editarPasajero(req.params.id, nombre.trim(), req.empresa_id);
-  io.emit('estado_completo', await db.getEstadoTodos());
+  io.to(`empresa:${req.empresa_id}:dashboard`).emit('estado_completo', await db.getEstadoTodos(req.empresa_id));
   res.json({ ok: true });
 });
 
 app.delete('/api/admin/pasajero/:id', requireAdmin, async (req, res) => {
   await db.eliminarPasajero(req.params.id, req.empresa_id);
-  io.emit('estado_completo', await db.getEstadoTodos());
+  io.to(`empresa:${req.empresa_id}:dashboard`).emit('estado_completo', await db.getEstadoTodos(req.empresa_id));
   res.json({ ok: true });
 });
 
@@ -231,7 +231,7 @@ app.post('/api/gestion/recorrido', requireGestion, async (req, res) => {
     return res.status(400).json({ error: 'Nombre y placa son requeridos' });
   try {
     const id = await db.crearRecorrido(nombre.trim(), codigo.trim().toUpperCase(), req.empresa_id);
-    io.emit('estado_completo', await db.getEstadoTodos());
+    io.to(`empresa:${req.empresa_id}:dashboard`).emit('estado_completo', await db.getEstadoTodos(req.empresa_id));
     res.json({ id });
   } catch {
     res.status(400).json({ error: 'Esa placa ya está en uso' });
@@ -244,7 +244,7 @@ app.post('/api/gestion/pasajero', requireGestion, async (req, res) => {
     return res.status(400).json({ error: 'Nombre y recorrido son requeridos' });
   try {
     const id = await db.crearPasajero(nombre.trim(), recorrido_id, req.empresa_id);
-    io.emit('estado_completo', await db.getEstadoTodos());
+    io.to(`empresa:${req.empresa_id}:dashboard`).emit('estado_completo', await db.getEstadoTodos(req.empresa_id));
     res.json({ id });
   } catch {
     res.status(400).json({ error: 'Recorrido no encontrado' });
@@ -255,7 +255,7 @@ app.put('/api/gestion/recorrido/:id', requireGestion, async (req, res) => {
   const { nombre } = req.body;
   if (!nombre?.trim()) return res.status(400).json({ error: 'El nombre es requerido' });
   await db.editarRecorrido(req.params.id, nombre.trim(), req.empresa_id);
-  io.emit('estado_completo', await db.getEstadoTodos());
+  io.to(`empresa:${req.empresa_id}:dashboard`).emit('estado_completo', await db.getEstadoTodos(req.empresa_id));
   res.json({ ok: true });
 });
 
@@ -263,13 +263,13 @@ app.put('/api/gestion/pasajero/:id', requireGestion, async (req, res) => {
   const { nombre } = req.body;
   if (!nombre?.trim()) return res.status(400).json({ error: 'El nombre es requerido' });
   await db.editarPasajero(req.params.id, nombre.trim(), req.empresa_id);
-  io.emit('estado_completo', await db.getEstadoTodos());
+  io.to(`empresa:${req.empresa_id}:dashboard`).emit('estado_completo', await db.getEstadoTodos(req.empresa_id));
   res.json({ ok: true });
 });
 
 app.delete('/api/gestion/pasajero/:id', requireGestion, async (req, res) => {
   await db.eliminarPasajero(req.params.id, req.empresa_id);
-  io.emit('estado_completo', await db.getEstadoTodos());
+  io.to(`empresa:${req.empresa_id}:dashboard`).emit('estado_completo', await db.getEstadoTodos(req.empresa_id));
   res.json({ ok: true });
 });
 
@@ -279,7 +279,7 @@ app.post('/api/admin/importar', requireAdmin, upload.single('archivo'), async (r
     const { error, recorridos } = await parsearRecorridosExcel(req.file.buffer);
     if (error) return res.status(400).json({ error });
     const resultado = await db.importarRecorridos(recorridos, req.empresa_id);
-    io.emit('estado_completo', await db.getEstadoTodos());
+    io.to(`empresa:${req.empresa_id}:dashboard`).emit('estado_completo', await db.getEstadoTodos(req.empresa_id));
     res.json(resultado);
   } catch (err) {
     res.status(400).json({ error: 'Error leyendo el archivo: ' + err.message });
@@ -289,7 +289,7 @@ app.post('/api/admin/importar', requireAdmin, upload.single('archivo'), async (r
 app.post('/api/admin/reset', requireAdmin, async (req, res) => {
   const { recorrido_id } = req.body;
   await db.resetSesionHoy(recorrido_id);
-  io.emit('estado_completo', await db.getEstadoTodos());
+  io.to(`empresa:${req.empresa_id}:dashboard`).emit('estado_completo', await db.getEstadoTodos(req.empresa_id));
   res.json({ ok: true });
 });
 
@@ -297,16 +297,16 @@ app.post('/api/admin/aviso', requireAdmin, async (req, res) => {
   const { recorrido_id, pasajero_id } = req.body;
   if (!recorrido_id || !pasajero_id) return res.status(400).json({ error: 'Faltan datos' });
   const estadoRec = await db.marcarAviso(recorrido_id, pasajero_id, hora());
-  io.to(`r:${estadoRec.recorrido.codigo}`).emit('estado_recorrido', estadoRec);
-  io.emit('estado_completo', await db.getEstadoTodos());
+  io.to(`empresa:${estadoRec.recorrido.empresa_id}:r:${estadoRec.recorrido.codigo}`).emit('estado_recorrido', estadoRec);
+  io.to(`empresa:${req.empresa_id}:dashboard`).emit('estado_completo', await db.getEstadoTodos(req.empresa_id));
   res.json({ ok: true });
 });
 
 app.delete('/api/admin/aviso', requireAdmin, async (req, res) => {
   const { recorrido_id, pasajero_id } = req.body;
   const estadoRec = await db.desmarcarAviso(recorrido_id, pasajero_id);
-  if (estadoRec) io.to(`r:${estadoRec.recorrido.codigo}`).emit('estado_recorrido', estadoRec);
-  io.emit('estado_completo', await db.getEstadoTodos());
+  if (estadoRec) io.to(`empresa:${estadoRec.recorrido.empresa_id}:r:${estadoRec.recorrido.codigo}`).emit('estado_recorrido', estadoRec);
+  io.to(`empresa:${req.empresa_id}:dashboard`).emit('estado_completo', await db.getEstadoTodos(req.empresa_id));
   res.json({ ok: true });
 });
 
@@ -483,12 +483,15 @@ const TIPOS_VALIDOS = new Set(['recogido', 'no_estaba', 'aviso']);
 
 io.on('connection', (socket) => {
   socket.on('join_dashboard', async () => {
-    socket.join('dashboard');
-    socket.emit('estado_completo', await db.getEstadoTodos());
+    const empresa_id = await db.getEmpresaIdPorDefecto();
+    socket.join(`empresa:${empresa_id}:dashboard`);
+    socket.emit('estado_completo', await db.getEstadoTodos(empresa_id));
   });
 
-  socket.on('join_recorrido', ({ codigo }) => {
-    socket.join(`r:${codigo}`);
+  socket.on('join_recorrido', async ({ codigo }) => {
+    const empresa_id = await db.getEmpresaIdPorCodigo(codigo);
+    if (!empresa_id) return;
+    socket.join(`empresa:${empresa_id}:r:${codigo}`);
   });
 
   socket.on('iniciar_recorrido', async ({ codigo }) => {
@@ -540,7 +543,7 @@ io.on('connection', (socket) => {
       if (!estado) return;
       broadcastActualizacion(codigo, estado);
       await db.guardarReporte();
-      io.to('dashboard').emit('alerta_llegada', {
+      io.to(`empresa:${estado.recorrido.empresa_id}:dashboard`).emit('alerta_llegada', {
         recorrido: estado.recorrido.nombre,
         hora: horaLlegada,
         retirados: estado.retiros.filter(r => r.tipo === 'recogido').length,
@@ -564,8 +567,9 @@ io.on('connection', (socket) => {
 });
 
 async function broadcastActualizacion(codigo, estadoRecorrido) {
-  io.to(`r:${codigo}`).emit('estado_recorrido', estadoRecorrido);
-  io.to('dashboard').emit('estado_completo', await db.getEstadoTodos());
+  const empresa_id = estadoRecorrido.recorrido.empresa_id;
+  io.to(`empresa:${empresa_id}:r:${codigo}`).emit('estado_recorrido', estadoRecorrido);
+  io.to(`empresa:${empresa_id}:dashboard`).emit('estado_completo', await db.getEstadoTodos(empresa_id));
 }
 
 // Esperas de más de 3 min → "no estaba". Corre cuando un cliente avisa que
@@ -574,11 +578,18 @@ async function broadcastActualizacion(codigo, estadoRecorrido) {
 async function expirarEsperasPendientes() {
   const codigos = await db.expirarEsperas(hora());
   if (!codigos.length) return;
+  const empresasAfectadas = new Set();
   for (const codigo of codigos) {
     const estado = await db.getEstadoRecorrido(codigo);
-    if (estado) io.to(`r:${codigo}`).emit('estado_recorrido', estado);
+    if (estado) {
+      const empresa_id = estado.recorrido.empresa_id;
+      empresasAfectadas.add(empresa_id);
+      io.to(`empresa:${empresa_id}:r:${codigo}`).emit('estado_recorrido', estado);
+    }
   }
-  io.to('dashboard').emit('estado_completo', await db.getEstadoTodos());
+  for (const empresa_id of empresasAfectadas) {
+    io.to(`empresa:${empresa_id}:dashboard`).emit('estado_completo', await db.getEstadoTodos(empresa_id));
+  }
 }
 
 function hora() {

@@ -219,6 +219,26 @@ module.exports = {
     return rows[0] || null;
   },
 
+  // ─── Multi-tenancy: resolucion de empresa ─────────────────────────────────
+  // Provisorio para cuando solo existe "Empresa Principal" (Fase 1). Cuando
+  // la Fase 2 identifique la empresa por subdominio/slug en la URL, estas
+  // funciones se reemplazan por la resolucion real segun esa identificacion.
+
+  async getEmpresaIdPorDefecto() {
+    const { rows } = await pool.query("SELECT id FROM empresas WHERE slug = 'default'");
+    return rows[0]?.id ?? null;
+  },
+
+  // OJO: el codigo hoy es unico por empresa, no globalmente. Si en el futuro
+  // dos empresas distintas usan la misma placa, esta funcion es ambigua —
+  // depende de que Fase 2 resuelva la empresa por URL antes de que eso pase.
+  async getEmpresaIdPorCodigo(codigo) {
+    const { rows } = await pool.query(
+      'SELECT empresa_id FROM recorridos WHERE codigo = $1 AND activo = TRUE LIMIT 1', [codigo]
+    );
+    return rows[0]?.empresa_id ?? null;
+  },
+
   // ─── Usuarios admin (uno por empresa) ────────────────────────────────────
 
   async getUsuarioAdmin(usuario) {
@@ -446,10 +466,11 @@ module.exports = {
   },
 
   // Optimizado: 4 queries fijas en vez de 3 por recorrido
-  async getEstadoTodos() {
+  async getEstadoTodos(empresa_id) {
     const hoy = fechaHoy();
     const { rows: recorridos } = await pool.query(
-      'SELECT * FROM recorridos WHERE activo = TRUE ORDER BY nombre'
+      'SELECT * FROM recorridos WHERE activo = TRUE AND empresa_id = $1 ORDER BY nombre',
+      [empresa_id]
     );
     if (!recorridos.length) return [];
 
