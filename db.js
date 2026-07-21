@@ -132,6 +132,17 @@ async function initDB() {
     );
     CREATE UNIQUE INDEX IF NOT EXISTS idx_usuarios_gestion_usuario
       ON usuarios_gestion(usuario) WHERE activo = TRUE;
+
+    -- Multi-tenancy (SaaS): empresas dueñas de cada recorrido. Paso puramente
+    -- aditivo — todavía no lo usa ninguna ruta ni query existente.
+    CREATE TABLE IF NOT EXISTS empresas (
+      id        SERIAL PRIMARY KEY,
+      nombre    TEXT NOT NULL,
+      slug      TEXT NOT NULL,
+      activo    BOOLEAN DEFAULT TRUE,
+      creado_en TIMESTAMPTZ DEFAULT now()
+    );
+    ALTER TABLE recorridos ADD COLUMN IF NOT EXISTS empresa_id INTEGER REFERENCES empresas(id);
   `);
   console.log('  Base de datos inicializada correctamente');
 }
