@@ -92,11 +92,13 @@ const gestionLimiter = rateLimit({
   legacyHeaders: false,
 });
 
-const gestionTokens = new Set();
+const gestionTokens = new Map(); // token -> { empresa_id, usuario }
 
 function requireGestion(req, res, next) {
   const token = req.headers['x-gestion-token'];
-  if (!token || !gestionTokens.has(token)) return res.status(401).json({ error: 'No autorizado' });
+  const info = token && gestionTokens.get(token);
+  if (!info) return res.status(401).json({ error: 'No autorizado' });
+  req.empresa_id = info.empresa_id;
   next();
 }
 
@@ -107,7 +109,7 @@ app.post('/api/gestion/login', gestionLimiter, async (req, res) => {
   if (!u || !verificarClave(clave, u.clave_hash))
     return res.status(401).json({ error: 'Usuario o clave incorrectos' });
   const token = crypto.randomBytes(32).toString('hex');
-  gestionTokens.add(token);
+  gestionTokens.set(token, { empresa_id: u.empresa_id, usuario: u.usuario });
   res.json({ token, usuario: u.usuario });
 });
 
@@ -137,7 +139,7 @@ app.get('/api/chofer/:codigo/historial', async (req, res) => {
 });
 
 app.get('/api/admin/recorridos', requireAdmin, async (req, res) => {
-  res.json(await db.getAllRecorridosConPasajeros());
+  res.json(await db.getAllRecorridosConPasajeros(req.empresa_id));
 });
 
 app.post('/api/admin/recorrido', requireAdmin, async (req, res) => {
@@ -145,7 +147,7 @@ app.post('/api/admin/recorrido', requireAdmin, async (req, res) => {
   if (!nombre?.trim() || !codigo?.trim())
     return res.status(400).json({ error: 'Nombre y código son requeridos' });
   try {
-    const id = await db.crearRecorrido(nombre.trim(), codigo.trim().toUpperCase());
+    const id = await db.crearRecorrido(nombre.trim(), codigo.trim().toUpperCase(), req.empresa_id);
     res.json({ id });
   } catch {
     res.status(400).json({ error: 'Esa placa ya está en uso' });
@@ -155,13 +157,13 @@ app.post('/api/admin/recorrido', requireAdmin, async (req, res) => {
 app.put('/api/admin/recorrido/:id', requireAdmin, async (req, res) => {
   const { nombre } = req.body;
   if (!nombre?.trim()) return res.status(400).json({ error: 'El nombre es requerido' });
-  await db.editarRecorrido(req.params.id, nombre.trim());
+  await db.editarRecorrido(req.params.id, nombre.trim(), req.empresa_id);
   io.emit('estado_completo', await db.getEstadoTodos());
   res.json({ ok: true });
 });
 
 app.delete('/api/admin/recorrido/:id', requireAdmin, async (req, res) => {
-  await db.eliminarRecorrido(req.params.id);
+  await db.eliminarRecorrido(req.params.id, req.empresa_id);
   io.emit('estado_completo', await db.getEstadoTodos());
   res.json({ ok: true });
 });
@@ -170,20 +172,24 @@ app.post('/api/admin/pasajero', requireAdmin, async (req, res) => {
   const { nombre, recorrido_id } = req.body;
   if (!nombre?.trim() || !recorrido_id)
     return res.status(400).json({ error: 'Nombre y recorrido son requeridos' });
-  const id = await db.crearPasajero(nombre.trim(), recorrido_id);
-  res.json({ id });
+  try {
+    const id = await db.crearPasajero(nombre.trim(), recorrido_id, req.empresa_id);
+    res.json({ id });
+  } catch {
+    res.status(400).json({ error: 'Recorrido no encontrado' });
+  }
 });
 
 app.put('/api/admin/pasajero/:id', requireAdmin, async (req, res) => {
   const { nombre } = req.body;
   if (!nombre?.trim()) return res.status(400).json({ error: 'El nombre es requerido' });
-  await db.editarPasajero(req.params.id, nombre.trim());
+  await db.editarPasajero(req.params.id, nombre.trim(), req.empresa_id);
   io.emit('estado_completo', await db.getEstadoTodos());
   res.json({ ok: true });
 });
 
 app.delete('/api/admin/pasajero/:id', requireAdmin, async (req, res) => {
-  await db.eliminarPasajero(req.params.id);
+  await db.eliminarPasajero(req.params.id, req.empresa_id);
   io.emit('estado_completo', await db.getEstadoTodos());
   res.json({ ok: true });
 });
@@ -191,7 +197,7 @@ app.delete('/api/admin/pasajero/:id', requireAdmin, async (req, res) => {
 // ─── Usuarios de gestión (administrados desde el panel admin) ────────────────
 
 app.get('/api/admin/usuarios', requireAdmin, async (req, res) => {
-  res.json(await db.listarUsuariosGestion());
+  res.json(await db.listarUsuariosGestion(req.empresa_id));
 });
 
 app.post('/api/admin/usuario', requireAdmin, async (req, res) => {
@@ -201,7 +207,7 @@ app.post('/api/admin/usuario', requireAdmin, async (req, res) => {
   if (clave.length < 6)
     return res.status(400).json({ error: 'La clave debe tener al menos 6 caracteres' });
   try {
-    const id = await db.crearUsuarioGestion(usuario.trim(), hashClave(clave));
+    const id = await db.crearUsuarioGestion(usuario.trim(), hashClave(clave), req.empresa_id);
     res.json({ id });
   } catch {
     res.status(400).json({ error: 'Ese usuario ya existe' });
@@ -209,14 +215,14 @@ app.post('/api/admin/usuario', requireAdmin, async (req, res) => {
 });
 
 app.delete('/api/admin/usuario/:id', requireAdmin, async (req, res) => {
-  await db.eliminarUsuarioGestion(req.params.id);
+  await db.eliminarUsuarioGestion(req.params.id, req.empresa_id);
   res.json({ ok: true });
 });
 
 // ─── API de gestión (alta de choferes y pasajeros) ───────────────────────────
 
 app.get('/api/gestion/recorridos', requireGestion, async (req, res) => {
-  res.json(await db.getAllRecorridosConPasajeros());
+  res.json(await db.getAllRecorridosConPasajeros(req.empresa_id));
 });
 
 app.post('/api/gestion/recorrido', requireGestion, async (req, res) => {
@@ -224,7 +230,7 @@ app.post('/api/gestion/recorrido', requireGestion, async (req, res) => {
   if (!nombre?.trim() || !codigo?.trim())
     return res.status(400).json({ error: 'Nombre y placa son requeridos' });
   try {
-    const id = await db.crearRecorrido(nombre.trim(), codigo.trim().toUpperCase());
+    const id = await db.crearRecorrido(nombre.trim(), codigo.trim().toUpperCase(), req.empresa_id);
     io.emit('estado_completo', await db.getEstadoTodos());
     res.json({ id });
   } catch {
@@ -236,15 +242,19 @@ app.post('/api/gestion/pasajero', requireGestion, async (req, res) => {
   const { nombre, recorrido_id } = req.body;
   if (!nombre?.trim() || !recorrido_id)
     return res.status(400).json({ error: 'Nombre y recorrido son requeridos' });
-  const id = await db.crearPasajero(nombre.trim(), recorrido_id);
-  io.emit('estado_completo', await db.getEstadoTodos());
-  res.json({ id });
+  try {
+    const id = await db.crearPasajero(nombre.trim(), recorrido_id, req.empresa_id);
+    io.emit('estado_completo', await db.getEstadoTodos());
+    res.json({ id });
+  } catch {
+    res.status(400).json({ error: 'Recorrido no encontrado' });
+  }
 });
 
 app.put('/api/gestion/recorrido/:id', requireGestion, async (req, res) => {
   const { nombre } = req.body;
   if (!nombre?.trim()) return res.status(400).json({ error: 'El nombre es requerido' });
-  await db.editarRecorrido(req.params.id, nombre.trim());
+  await db.editarRecorrido(req.params.id, nombre.trim(), req.empresa_id);
   io.emit('estado_completo', await db.getEstadoTodos());
   res.json({ ok: true });
 });
@@ -252,13 +262,13 @@ app.put('/api/gestion/recorrido/:id', requireGestion, async (req, res) => {
 app.put('/api/gestion/pasajero/:id', requireGestion, async (req, res) => {
   const { nombre } = req.body;
   if (!nombre?.trim()) return res.status(400).json({ error: 'El nombre es requerido' });
-  await db.editarPasajero(req.params.id, nombre.trim());
+  await db.editarPasajero(req.params.id, nombre.trim(), req.empresa_id);
   io.emit('estado_completo', await db.getEstadoTodos());
   res.json({ ok: true });
 });
 
 app.delete('/api/gestion/pasajero/:id', requireGestion, async (req, res) => {
-  await db.eliminarPasajero(req.params.id);
+  await db.eliminarPasajero(req.params.id, req.empresa_id);
   io.emit('estado_completo', await db.getEstadoTodos());
   res.json({ ok: true });
 });
@@ -268,7 +278,7 @@ app.post('/api/admin/importar', requireAdmin, upload.single('archivo'), async (r
   try {
     const { error, recorridos } = await parsearRecorridosExcel(req.file.buffer);
     if (error) return res.status(400).json({ error });
-    const resultado = await db.importarRecorridos(recorridos);
+    const resultado = await db.importarRecorridos(recorridos, req.empresa_id);
     io.emit('estado_completo', await db.getEstadoTodos());
     res.json(resultado);
   } catch (err) {

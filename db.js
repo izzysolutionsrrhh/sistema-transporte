@@ -184,11 +184,11 @@ module.exports = {
 
   // ─── Usuarios de gestión ──────────────────────────────────────────────────
 
-  async crearUsuarioGestion(usuario, clave_hash) {
+  async crearUsuarioGestion(usuario, clave_hash, empresa_id) {
     try {
       const { rows } = await pool.query(
-        'INSERT INTO usuarios_gestion (usuario, clave_hash) VALUES ($1, $2) RETURNING id',
-        [usuario, clave_hash]
+        'INSERT INTO usuarios_gestion (usuario, clave_hash, empresa_id) VALUES ($1, $2, $3) RETURNING id',
+        [usuario, clave_hash, empresa_id]
       );
       return rows[0].id;
     } catch (err) {
@@ -197,15 +197,19 @@ module.exports = {
     }
   },
 
-  async listarUsuariosGestion() {
+  async listarUsuariosGestion(empresa_id) {
     const { rows } = await pool.query(
-      'SELECT id, usuario FROM usuarios_gestion WHERE activo = TRUE ORDER BY usuario'
+      'SELECT id, usuario FROM usuarios_gestion WHERE activo = TRUE AND empresa_id = $1 ORDER BY usuario',
+      [empresa_id]
     );
     return rows;
   },
 
-  async eliminarUsuarioGestion(id) {
-    await pool.query('UPDATE usuarios_gestion SET activo = FALSE WHERE id = $1', [parseInt(id)]);
+  async eliminarUsuarioGestion(id, empresa_id) {
+    await pool.query(
+      'UPDATE usuarios_gestion SET activo = FALSE WHERE id = $1 AND empresa_id = $2',
+      [parseInt(id), empresa_id]
+    );
   },
 
   async getUsuarioGestion(usuario) {
@@ -237,11 +241,11 @@ module.exports = {
     );
   },
 
-  async crearRecorrido(nombre, codigo) {
+  async crearRecorrido(nombre, codigo, empresa_id) {
     try {
       const { rows } = await pool.query(
-        'INSERT INTO recorridos (nombre, codigo) VALUES ($1, $2) RETURNING id',
-        [nombre, codigo]
+        'INSERT INTO recorridos (nombre, codigo, empresa_id) VALUES ($1, $2, $3) RETURNING id',
+        [nombre, codigo, empresa_id]
       );
       return rows[0].id;
     } catch (err) {
@@ -250,21 +254,32 @@ module.exports = {
     }
   },
 
-  async eliminarRecorrido(id) {
-    await pool.query('UPDATE recorridos SET activo = FALSE WHERE id = $1', [parseInt(id)]);
+  async eliminarRecorrido(id, empresa_id) {
+    await pool.query(
+      'UPDATE recorridos SET activo = FALSE WHERE id = $1 AND empresa_id = $2',
+      [parseInt(id), empresa_id]
+    );
   },
 
-  async editarRecorrido(id, nombre) {
-    await pool.query('UPDATE recorridos SET nombre = $1 WHERE id = $2', [nombre, parseInt(id)]);
+  async editarRecorrido(id, nombre, empresa_id) {
+    await pool.query(
+      'UPDATE recorridos SET nombre = $1 WHERE id = $2 AND empresa_id = $3',
+      [nombre, parseInt(id), empresa_id]
+    );
   },
 
-  async editarPasajero(id, nombre) {
-    await pool.query('UPDATE pasajeros SET nombre = $1 WHERE id = $2', [nombre, parseInt(id)]);
+  async editarPasajero(id, nombre, empresa_id) {
+    await pool.query(
+      `UPDATE pasajeros SET nombre = $1
+       WHERE id = $2 AND recorrido_id IN (SELECT id FROM recorridos WHERE empresa_id = $3)`,
+      [nombre, parseInt(id), empresa_id]
+    );
   },
 
-  async getAllRecorridosConPasajeros() {
+  async getAllRecorridosConPasajeros(empresa_id) {
     const { rows: recorridos } = await pool.query(
-      'SELECT * FROM recorridos WHERE activo = TRUE ORDER BY nombre'
+      'SELECT * FROM recorridos WHERE activo = TRUE AND empresa_id = $1 ORDER BY nombre',
+      [empresa_id]
     );
     if (!recorridos.length) return [];
     const { rows: pasajeros } = await pool.query(
@@ -277,8 +292,12 @@ module.exports = {
     }));
   },
 
-  async crearPasajero(nombre, recorrido_id) {
+  async crearPasajero(nombre, recorrido_id, empresa_id) {
     recorrido_id = parseInt(recorrido_id);
+    const { rows: rec } = await pool.query(
+      'SELECT id FROM recorridos WHERE id = $1 AND empresa_id = $2', [recorrido_id, empresa_id]
+    );
+    if (!rec[0]) throw new Error('Recorrido no encontrado');
     const { rows } = await pool.query(
       'SELECT COALESCE(MAX(orden), 0) + 1 AS sig FROM pasajeros WHERE recorrido_id = $1',
       [recorrido_id]
@@ -290,8 +309,12 @@ module.exports = {
     return ins[0].id;
   },
 
-  async eliminarPasajero(id) {
-    await pool.query('UPDATE pasajeros SET activo = FALSE WHERE id = $1', [parseInt(id)]);
+  async eliminarPasajero(id, empresa_id) {
+    await pool.query(
+      `UPDATE pasajeros SET activo = FALSE
+       WHERE id = $1 AND recorrido_id IN (SELECT id FROM recorridos WHERE empresa_id = $2)`,
+      [parseInt(id), empresa_id]
+    );
   },
 
   async iniciarRecorrido(codigo, hora) {
@@ -658,7 +681,7 @@ module.exports = {
     );
   },
 
-  async importarRecorridos(recorridos) {
+  async importarRecorridos(recorridos, empresa_id) {
     let recorridosCreados = 0, pasajerosCreados = 0;
     const errores = [];
 
@@ -669,17 +692,18 @@ module.exports = {
       let recorrido_id;
       try {
         const { rows } = await pool.query(
-          `INSERT INTO recorridos (nombre, codigo) VALUES ($1, $2)
+          `INSERT INTO recorridos (nombre, codigo, empresa_id) VALUES ($1, $2, $3)
            ON CONFLICT (empresa_id, codigo) WHERE activo = TRUE DO NOTHING
            RETURNING id`,
-          [nombre, codigo]
+          [nombre, codigo, empresa_id]
         );
         if (rows[0]) {
           recorrido_id = rows[0].id;
           recorridosCreados++;
         } else {
           const { rows: ex } = await pool.query(
-            'SELECT id FROM recorridos WHERE codigo = $1 AND activo = TRUE', [codigo]
+            'SELECT id FROM recorridos WHERE codigo = $1 AND empresa_id = $2 AND activo = TRUE',
+            [codigo, empresa_id]
           );
           recorrido_id = ex[0]?.id;
           if (recorrido_id) errores.push(`Placa ${codigo} ya existía — pasajeros agregados igual`);
