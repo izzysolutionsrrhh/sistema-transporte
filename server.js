@@ -118,7 +118,11 @@ app.get('/api/recorrido/:codigo', async (req, res) => {
 });
 
 app.get('/api/dashboard', async (req, res) => {
-  res.json(await db.getEstadoTodos(await db.getEmpresaIdPorDefecto()));
+  const empresa_id = req.query.empresa
+    ? await db.getEmpresaIdPorSlug(req.query.empresa)
+    : await db.getEmpresaIdPorDefecto();
+  if (!empresa_id) return res.status(404).json({ error: 'Empresa no encontrada' });
+  res.json(await db.getEstadoTodos(empresa_id));
 });
 
 app.get('/api/chofer/:codigo/historial', async (req, res) => {
@@ -471,8 +475,11 @@ app.get('/api/admin/reporte/:fecha/xlsx', requireAdmin, async (req, res) => {
 const TIPOS_VALIDOS = new Set(['recogido', 'no_estaba', 'aviso']);
 
 io.on('connection', (socket) => {
-  socket.on('join_dashboard', async () => {
-    const empresa_id = await db.getEmpresaIdPorDefecto();
+  socket.on('join_dashboard', async ({ empresa } = {}) => {
+    const empresa_id = empresa
+      ? await db.getEmpresaIdPorSlug(empresa)
+      : await db.getEmpresaIdPorDefecto();
+    if (!empresa_id) return;
     socket.join(`empresa:${empresa_id}:dashboard`);
     socket.emit('estado_completo', await db.getEstadoTodos(empresa_id));
   });

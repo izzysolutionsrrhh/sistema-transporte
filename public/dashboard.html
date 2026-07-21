@@ -379,9 +379,10 @@
 <script>
   const socket = io();
   const logEventos = [];
+  const empresaSlug = new URLSearchParams(location.search).get('empresa') || null;
 
   socket.on('connect', () => {
-    socket.emit('join_dashboard');
+    socket.emit('join_dashboard', { empresa: empresaSlug });
   });
 
   socket.on('estado_completo', (datos) => {

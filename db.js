@@ -220,12 +220,20 @@ module.exports = {
   },
 
   // ─── Multi-tenancy: resolucion de empresa ─────────────────────────────────
-  // Provisorio para cuando solo existe "Empresa Principal" (Fase 1). Cuando
-  // la Fase 2 identifique la empresa por subdominio/slug en la URL, estas
-  // funciones se reemplazan por la resolucion real segun esa identificacion.
+  // getEmpresaIdPorDefecto() es el fallback cuando no se identifica ninguna
+  // empresa (ej. dashboard.html sin ?empresa= en la URL, para no romper
+  // enlaces viejos). getEmpresaIdPorSlug() es la resolucion real a partir
+  // del identificador que mande el cliente en la URL.
 
   async getEmpresaIdPorDefecto() {
     const { rows } = await pool.query("SELECT id FROM empresas WHERE slug = 'default'");
+    return rows[0]?.id ?? null;
+  },
+
+  async getEmpresaIdPorSlug(slug) {
+    const { rows } = await pool.query(
+      'SELECT id FROM empresas WHERE slug = $1 AND activo = TRUE', [slug]
+    );
     return rows[0]?.id ?? null;
   },
 
