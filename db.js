@@ -457,8 +457,12 @@ module.exports = {
     return buildEstado(recorrido);
   },
 
-  async resetSesionHoy(recorrido_id) {
+  async resetSesionHoy(recorrido_id, empresa_id) {
     recorrido_id = parseInt(recorrido_id);
+    const { rows: rec } = await pool.query(
+      'SELECT id FROM recorridos WHERE id = $1 AND empresa_id = $2', [recorrido_id, empresa_id]
+    );
+    if (!rec[0]) return;
     const sesion = await sesionHoy(recorrido_id);
     if (!sesion) return;
     await pool.query('DELETE FROM retiros  WHERE sesion_id = $1', [sesion.id]);
@@ -509,30 +513,36 @@ module.exports = {
     });
   },
 
-  async marcarAviso(recorrido_id, pasajero_id, hora) {
+  async marcarAviso(recorrido_id, pasajero_id, hora, empresa_id) {
     recorrido_id = parseInt(recorrido_id);
     pasajero_id  = parseInt(pasajero_id);
+    const { rows: rec } = await pool.query(
+      'SELECT * FROM recorridos WHERE id = $1 AND empresa_id = $2', [recorrido_id, empresa_id]
+    );
+    if (!rec[0]) return null;
     const sesion = await getOCrearSesion(recorrido_id);
     await pool.query(
       `INSERT INTO retiros (sesion_id, pasajero_id, hora, tipo)
        VALUES ($1, $2, $3, 'aviso') ON CONFLICT (sesion_id, pasajero_id) DO NOTHING`,
       [sesion.id, pasajero_id, hora]
     );
-    const { rows } = await pool.query('SELECT * FROM recorridos WHERE id = $1', [recorrido_id]);
-    return buildEstado(rows[0]);
+    return buildEstado(rec[0]);
   },
 
-  async desmarcarAviso(recorrido_id, pasajero_id) {
+  async desmarcarAviso(recorrido_id, pasajero_id, empresa_id) {
     recorrido_id = parseInt(recorrido_id);
     pasajero_id  = parseInt(pasajero_id);
+    const { rows: rec } = await pool.query(
+      'SELECT * FROM recorridos WHERE id = $1 AND empresa_id = $2', [recorrido_id, empresa_id]
+    );
+    if (!rec[0]) return null;
     const sesion = await sesionHoy(recorrido_id);
     if (!sesion) return null;
     await pool.query(
       "DELETE FROM retiros WHERE sesion_id = $1 AND pasajero_id = $2 AND tipo = 'aviso'",
       [sesion.id, pasajero_id]
     );
-    const { rows } = await pool.query('SELECT * FROM recorridos WHERE id = $1', [recorrido_id]);
-    return buildEstado(rows[0]);
+    return buildEstado(rec[0]);
   },
 
   // Optimizado: 1 query para todos los retiros en vez de 1 por sesión

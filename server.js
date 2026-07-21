@@ -281,7 +281,7 @@ app.post('/api/admin/importar', requireAdmin, upload.single('archivo'), async (r
 
 app.post('/api/admin/reset', requireAdmin, async (req, res) => {
   const { recorrido_id } = req.body;
-  await db.resetSesionHoy(recorrido_id);
+  await db.resetSesionHoy(recorrido_id, req.empresa_id);
   io.to(`empresa:${req.empresa_id}:dashboard`).emit('estado_completo', await db.getEstadoTodos(req.empresa_id));
   res.json({ ok: true });
 });
@@ -289,7 +289,8 @@ app.post('/api/admin/reset', requireAdmin, async (req, res) => {
 app.post('/api/admin/aviso', requireAdmin, async (req, res) => {
   const { recorrido_id, pasajero_id } = req.body;
   if (!recorrido_id || !pasajero_id) return res.status(400).json({ error: 'Faltan datos' });
-  const estadoRec = await db.marcarAviso(recorrido_id, pasajero_id, hora());
+  const estadoRec = await db.marcarAviso(recorrido_id, pasajero_id, hora(), req.empresa_id);
+  if (!estadoRec) return res.status(404).json({ error: 'Recorrido no encontrado' });
   io.to(`empresa:${estadoRec.recorrido.empresa_id}:r:${estadoRec.recorrido.codigo}`).emit('estado_recorrido', estadoRec);
   io.to(`empresa:${req.empresa_id}:dashboard`).emit('estado_completo', await db.getEstadoTodos(req.empresa_id));
   res.json({ ok: true });
@@ -297,7 +298,7 @@ app.post('/api/admin/aviso', requireAdmin, async (req, res) => {
 
 app.delete('/api/admin/aviso', requireAdmin, async (req, res) => {
   const { recorrido_id, pasajero_id } = req.body;
-  const estadoRec = await db.desmarcarAviso(recorrido_id, pasajero_id);
+  const estadoRec = await db.desmarcarAviso(recorrido_id, pasajero_id, req.empresa_id);
   if (estadoRec) io.to(`empresa:${estadoRec.recorrido.empresa_id}:r:${estadoRec.recorrido.codigo}`).emit('estado_recorrido', estadoRec);
   io.to(`empresa:${req.empresa_id}:dashboard`).emit('estado_completo', await db.getEstadoTodos(req.empresa_id));
   res.json({ ok: true });
