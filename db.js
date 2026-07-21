@@ -80,8 +80,6 @@ async function initDB() {
       codigo TEXT NOT NULL,
       activo BOOLEAN DEFAULT TRUE
     );
-    CREATE UNIQUE INDEX IF NOT EXISTS idx_recorridos_codigo
-      ON recorridos(codigo) WHERE activo = TRUE;
 
     CREATE TABLE IF NOT EXISTS pasajeros (
       id           SERIAL PRIMARY KEY,
@@ -156,6 +154,25 @@ async function initDB() {
     );
     CREATE UNIQUE INDEX IF NOT EXISTS idx_usuarios_admin_usuario
       ON usuarios_admin(usuario) WHERE activo = TRUE;
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_empresas_slug
+      ON empresas(slug) WHERE activo = TRUE;
+
+    -- Migracion de datos existentes: crear una empresa por defecto para todo
+    -- lo que ya existia antes de multi-tenancy, y asignarsela (idempotente).
+    INSERT INTO empresas (nombre, slug)
+    SELECT 'Empresa Principal', 'default'
+    WHERE NOT EXISTS (SELECT 1 FROM empresas WHERE slug = 'default');
+
+    UPDATE recorridos SET empresa_id = (SELECT id FROM empresas WHERE slug = 'default')
+      WHERE empresa_id IS NULL;
+    UPDATE usuarios_gestion SET empresa_id = (SELECT id FROM empresas WHERE slug = 'default')
+      WHERE empresa_id IS NULL;
+
+    -- Ahora que todo recorrido tiene empresa_id, la placa pasa a ser unica
+    -- por empresa en vez de global.
+    DROP INDEX IF EXISTS idx_recorridos_codigo;
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_recorridos_codigo_empresa
+      ON recorridos(empresa_id, codigo) WHERE activo = TRUE;
   `);
   console.log('  Base de datos inicializada correctamente');
 }
@@ -631,7 +648,7 @@ module.exports = {
       try {
         const { rows } = await pool.query(
           `INSERT INTO recorridos (nombre, codigo) VALUES ($1, $2)
-           ON CONFLICT (codigo) WHERE activo = TRUE DO NOTHING
+           ON CONFLICT (empresa_id, codigo) WHERE activo = TRUE DO NOTHING
            RETURNING id`,
           [nombre, codigo]
         );
