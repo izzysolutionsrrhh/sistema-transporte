@@ -173,6 +173,16 @@ async function initDB() {
     DROP INDEX IF EXISTS idx_recorridos_codigo;
     CREATE UNIQUE INDEX IF NOT EXISTS idx_recorridos_codigo_empresa
       ON recorridos(empresa_id, codigo) WHERE activo = TRUE;
+
+    -- Los reportes tambien deben aislarse por empresa: antes la PK era solo
+    -- "fecha", asi que dos empresas generando reporte el mismo dia se pisaban
+    -- entre si y ademas mezclaban los recorridos de todas las empresas.
+    ALTER TABLE reportes ADD COLUMN IF NOT EXISTS empresa_id INTEGER REFERENCES empresas(id);
+    UPDATE reportes SET empresa_id = (SELECT id FROM empresas WHERE slug = 'default')
+      WHERE empresa_id IS NULL;
+    ALTER TABLE reportes ALTER COLUMN empresa_id SET NOT NULL;
+    ALTER TABLE reportes DROP CONSTRAINT IF EXISTS reportes_pkey;
+    ALTER TABLE reportes ADD CONSTRAINT reportes_pkey PRIMARY KEY (empresa_id, fecha);
   `);
   console.log('  Base de datos inicializada correctamente');
 }
@@ -584,10 +594,11 @@ module.exports = {
   },
 
   // Optimizado: 4 queries fijas en vez de 4 por recorrido
-  async generarReporte(fecha) {
+  async generarReporte(fecha, empresa_id) {
     fecha = fecha || fechaHoy();
     const { rows: recorridos } = await pool.query(
-      'SELECT * FROM recorridos WHERE activo = TRUE ORDER BY nombre'
+      'SELECT * FROM recorridos WHERE activo = TRUE AND empresa_id = $1 ORDER BY nombre',
+      [empresa_id]
     );
 
     const generado = new Date().toLocaleTimeString('es-PE', {
@@ -638,33 +649,40 @@ module.exports = {
     return { fecha, generado, recorridos: recorridosData };
   },
 
-  async guardarReporte(fecha) {
-    const reporte = await this.generarReporte(fecha);
+  async guardarReporte(fecha, empresa_id) {
+    const reporte = await this.generarReporte(fecha, empresa_id);
     await pool.query(
-      `INSERT INTO reportes (fecha, generado, datos) VALUES ($1, $2, $3)
-       ON CONFLICT (fecha) DO UPDATE SET generado = EXCLUDED.generado, datos = EXCLUDED.datos`,
-      [reporte.fecha, reporte.generado, JSON.stringify(reporte)]
+      `INSERT INTO reportes (fecha, empresa_id, generado, datos) VALUES ($1, $2, $3, $4)
+       ON CONFLICT (empresa_id, fecha) DO UPDATE SET generado = EXCLUDED.generado, datos = EXCLUDED.datos`,
+      [reporte.fecha, empresa_id, reporte.generado, JSON.stringify(reporte)]
     );
     return reporte;
   },
 
-  async listarReportes() {
-    const { rows } = await pool.query('SELECT fecha FROM reportes ORDER BY fecha DESC');
+  async listarReportes(empresa_id) {
+    const { rows } = await pool.query(
+      'SELECT fecha FROM reportes WHERE empresa_id = $1 ORDER BY fecha DESC',
+      [empresa_id]
+    );
     return rows.map(r => r.fecha);
   },
 
-  async getReporte(fecha) {
-    const { rows } = await pool.query('SELECT datos FROM reportes WHERE fecha = $1', [fecha]);
+  async getReporte(fecha, empresa_id) {
+    const { rows } = await pool.query(
+      'SELECT datos FROM reportes WHERE fecha = $1 AND empresa_id = $2',
+      [fecha, empresa_id]
+    );
     return rows[0]?.datos || null;
   },
 
-  async eliminarReporte(fecha) {
-    await pool.query('DELETE FROM reportes WHERE fecha = $1', [fecha]);
+  async eliminarReporte(fecha, empresa_id) {
+    await pool.query('DELETE FROM reportes WHERE fecha = $1 AND empresa_id = $2', [fecha, empresa_id]);
   },
 
-  async generarReporteRango(fechaInicio, fechaFin) {
+  async generarReporteRango(fechaInicio, fechaFin, empresa_id) {
     const { rows: recorridos } = await pool.query(
-      'SELECT * FROM recorridos WHERE activo = TRUE ORDER BY nombre'
+      'SELECT * FROM recorridos WHERE activo = TRUE AND empresa_id = $1 ORDER BY nombre',
+      [empresa_id]
     );
     if (!recorridos.length) return [];
 

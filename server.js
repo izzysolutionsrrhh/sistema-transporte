@@ -305,12 +305,12 @@ app.delete('/api/admin/aviso', requireAdmin, async (req, res) => {
 });
 
 app.get('/api/admin/reportes', requireAdmin, async (req, res) => {
-  res.json(await db.listarReportes());
+  res.json(await db.listarReportes(req.empresa_id));
 });
 
 app.post('/api/admin/reporte/generar', requireAdmin, async (req, res) => {
   const { fecha } = req.body;
-  res.json(await db.guardarReporte(fecha || undefined));
+  res.json(await db.guardarReporte(fecha || undefined, req.empresa_id));
 });
 
 // ─── Excel estilizado ────────────────────────────────────────────────────────
@@ -433,7 +433,7 @@ async function construirExcel(titulo, filasResumen, filasDetalle, conFecha = fal
 }
 
 app.delete('/api/admin/reporte/:fecha', requireAdmin, async (req, res) => {
-  await db.eliminarReporte(req.params.fecha);
+  await db.eliminarReporte(req.params.fecha, req.empresa_id);
   res.json({ ok: true });
 });
 
@@ -442,7 +442,7 @@ app.get('/api/admin/reporte/rango/xlsx', requireAdmin, async (req, res) => {
   if (!desde || !hasta || desde > hasta)
     return res.status(400).json({ error: 'Fechas inválidas' });
 
-  const filas = await db.generarReporteRango(desde, hasta);
+  const filas = await db.generarReporteRango(desde, hasta, req.empresa_id);
   const filasDetalle = filas.flatMap(r =>
     r.detalle.map(p => ({ fecha: r.fecha, nombre: r.nombre, placa: r.placa, pasajero: p.nombre, tipo: p.tipo, hora: p.hora, espera_seg: p.espera_seg, hora_llegada: r.hora_llegada }))
   );
@@ -456,7 +456,7 @@ app.get('/api/admin/reporte/rango/xlsx', requireAdmin, async (req, res) => {
 });
 
 app.get('/api/admin/reporte/:fecha/xlsx', requireAdmin, async (req, res) => {
-  const reporte = await db.getReporte(req.params.fecha);
+  const reporte = await db.getReporte(req.params.fecha, req.empresa_id);
   if (!reporte) return res.status(404).json({ error: 'Reporte no encontrado' });
 
   const filasDetalle = reporte.recorridos.flatMap(r =>
@@ -539,7 +539,7 @@ io.on('connection', (socket) => {
       const estado = await db.llegarOficina(sesion_id, horaLlegada, obs);
       if (!estado) return;
       broadcastActualizacion(codigo, estado);
-      await db.guardarReporte();
+      await db.guardarReporte(undefined, estado.recorrido.empresa_id);
       io.to(`empresa:${estado.recorrido.empresa_id}:dashboard`).emit('alerta_llegada', {
         recorrido: estado.recorrido.nombre,
         hora: horaLlegada,
