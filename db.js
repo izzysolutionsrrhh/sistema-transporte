@@ -227,8 +227,14 @@ async function initDB() {
     -- propio (dueño persona natural, negocio chico), se usa el RUC/cedula
     -- del representante legal en su lugar - es un solo dato, no dos.
     ALTER TABLE solicitudes_alta ADD COLUMN IF NOT EXISTS ruc_o_cedula TEXT;
-    UPDATE solicitudes_alta SET ruc_o_cedula = COALESCE(ruc_o_cedula, ruc_empresa, ruc_cedula_dueno)
-      WHERE ruc_o_cedula IS NULL;
+    DO $$
+    BEGIN
+      IF EXISTS (SELECT 1 FROM information_schema.columns
+                 WHERE table_name = 'solicitudes_alta' AND column_name = 'ruc_empresa') THEN
+        UPDATE solicitudes_alta SET ruc_o_cedula = COALESCE(ruc_o_cedula, ruc_empresa, ruc_cedula_dueno)
+          WHERE ruc_o_cedula IS NULL;
+      END IF;
+    END $$;
     ALTER TABLE solicitudes_alta ALTER COLUMN ruc_o_cedula SET NOT NULL;
     ALTER TABLE solicitudes_alta DROP COLUMN IF EXISTS ruc_empresa;
     ALTER TABLE solicitudes_alta DROP COLUMN IF EXISTS ruc_cedula_dueno;
