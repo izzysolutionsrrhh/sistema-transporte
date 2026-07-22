@@ -107,6 +107,88 @@ app.post('/api/gestion/logout', requireGestion, (req, res) => {
   res.json({ ok: true });
 });
 
+// ─── AUTH SUPERADMIN (dueño del SaaS, aprueba altas de empresas nuevas) ──────
+// Un solo usuario fijo por variables de entorno — no hay tabla, es el dueño
+// del negocio, no un usuario por empresa. Si las variables no están seteadas
+// el login queda deshabilitado (503) en vez de tumbar el arranque del server,
+// para no romper despliegues existentes que todavía no las tienen.
+
+const SUPERADMIN_USER = process.env.SUPERADMIN_USER;
+const SUPERADMIN_PASS = process.env.SUPERADMIN_PASS;
+
+const superadminLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  message: { error: 'Demasiados intentos. Esperá 15 minutos.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+const superadminTokens = new Set();
+
+function requireSuperadmin(req, res, next) {
+  const token = req.headers['x-superadmin-token'];
+  if (!token || !superadminTokens.has(token)) return res.status(401).json({ error: 'No autorizado' });
+  next();
+}
+
+app.post('/api/superadmin/login', superadminLimiter, (req, res) => {
+  if (!SUPERADMIN_USER || !SUPERADMIN_PASS)
+    return res.status(503).json({ error: 'Superadmin no configurado en este entorno' });
+  const { usuario, clave } = req.body;
+  if (usuario !== SUPERADMIN_USER || clave !== SUPERADMIN_PASS)
+    return res.status(401).json({ error: 'Usuario o clave incorrectos' });
+  const token = crypto.randomBytes(32).toString('hex');
+  superadminTokens.add(token);
+  res.json({ token });
+});
+
+app.post('/api/superadmin/logout', requireSuperadmin, (req, res) => {
+  superadminTokens.delete(req.headers['x-superadmin-token']);
+  res.json({ ok: true });
+});
+
+// ─── SOLICITUDES DE ALTA (self-serve con verificación manual) ───────────────
+
+const solicitudLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 5,
+  message: { error: 'Demasiadas solicitudes. Esperá un rato o escribinos directamente.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+app.post('/api/solicitudes', solicitudLimiter, async (req, res) => {
+  const { nombre_empresa, ruc_empresa, ruc_cedula_dueno, contacto_nombre, contacto_email, contacto_telefono } = req.body;
+  if (!nombre_empresa?.trim() || !ruc_empresa?.trim() || !ruc_cedula_dueno?.trim() || !contacto_nombre?.trim())
+    return res.status(400).json({ error: 'Faltan datos requeridos' });
+  const id = await db.crearSolicitudAlta({
+    nombre_empresa: nombre_empresa.trim(),
+    ruc_empresa: ruc_empresa.trim(),
+    ruc_cedula_dueno: ruc_cedula_dueno.trim(),
+    contacto_nombre: contacto_nombre.trim(),
+    contacto_email: contacto_email?.trim(),
+    contacto_telefono: contacto_telefono?.trim(),
+  });
+  res.json({ ok: true, id });
+});
+
+app.get('/api/superadmin/solicitudes', requireSuperadmin, async (req, res) => {
+  res.json(await db.listarSolicitudes());
+});
+
+app.post('/api/superadmin/solicitudes/:id/aprobar', requireSuperadmin, async (req, res) => {
+  const resultado = await db.aprobarSolicitud(parseInt(req.params.id));
+  if (!resultado) return res.status(404).json({ error: 'Solicitud no encontrada o ya procesada' });
+  res.json(resultado);
+});
+
+app.post('/api/superadmin/solicitudes/:id/rechazar', requireSuperadmin, async (req, res) => {
+  const ok = await db.rechazarSolicitud(parseInt(req.params.id));
+  if (!ok) return res.status(404).json({ error: 'Solicitud no encontrada o ya procesada' });
+  res.json({ ok: true });
+});
+
 // ─── REST API ────────────────────────────────────────────────────────────────
 
 app.get('/health', (req, res) => res.json({ status: 'ok' }));

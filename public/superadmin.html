@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Superadmin - Sistema de Recorridos</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --azul: #1d4ed8;
+      --verde: #15803d;
+      --rojo: #dc2626;
+      --gris: #6b7280;
+      --bg: #f1f5f9;
+      --card: #ffffff;
+      --borde: #e2e8f0;
+      --texto: #1e293b;
+      --muted: #64748b;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: var(--bg);
+      color: var(--texto);
+      min-height: 100vh;
+    }
+
+    .hidden { display: none !important; }
+
+    /* ── MODAL confirmar ─────────────────────────────── */
+    #modal-overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.5);
+      display: flex; align-items: center; justify-content: center;
+      z-index: 100; padding: 20px;
+    }
+    .modal-box { background: white; border-radius: 14px; padding: 24px; max-width: 360px; width: 100%; }
+    .modal-box h3 { font-size: 17px; margin-bottom: 10px; }
+    .modal-box p  { font-size: 14px; color: var(--muted); margin-bottom: 20px; line-height: 1.5; }
+    .modal-btns   { display: flex; gap: 10px; }
+    .btn-modal-cancel {
+      flex: 1; padding: 12px; background: var(--bg); color: var(--texto);
+      border: 1px solid var(--borde); border-radius: 8px; font-size: 15px; font-weight: 700; cursor: pointer;
+    }
+    .btn-modal-ok {
+      flex: 1; padding: 12px; background: var(--rojo); color: white;
+      border: none; border-radius: 8px; font-size: 15px; font-weight: 700; cursor: pointer;
+    }
+    .btn-modal-ok:hover { opacity: 0.9; }
+
+    /* ── LOGIN ──────────────────────────────────────── */
+    #screen-login { min-height: 100vh; display: flex; align-items: center; justify-content: center; background: #0f172a; }
+    .login-card { background: #1e293b; border: 1px solid #334155; border-radius: 16px; padding: 40px 36px; width: 100%; max-width: 380px; }
+    .login-card h2 { color: #f1f5f9; font-size: 22px; font-weight: 700; margin-bottom: 6px; text-align: center; }
+    .login-card p  { color: #94a3b8; font-size: 14px; text-align: center; margin-bottom: 28px; }
+    .login-field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 16px; }
+    .login-field label { color: #94a3b8; font-size: 13px; font-weight: 600; }
+    .login-field input { padding: 12px 14px; background: #0f172a; border: 1px solid #334155; border-radius: 8px; color: #f1f5f9; font-size: 15px; outline: none; }
+    .login-field input:focus { border-color: #1d4ed8; }
+    .btn-login { width: 100%; padding: 14px; background: #1d4ed8; color: white; font-size: 16px; font-weight: 700; border: none; border-radius: 8px; cursor: pointer; margin-top: 8px; }
+    .btn-login:hover { opacity: 0.9; }
+    .btn-login:disabled { opacity: 0.5; cursor: not-allowed; }
+    .login-error { color: #f87171; font-size: 13px; text-align: center; min-height: 18px; margin-top: 10px; }
+
+    /* ── PANEL ──────────────────────────────────────── */
+    #screen-panel { display: none; }
+    header { background: #1e293b; color: white; padding: 16px 24px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; }
+    header h1 { font-size: 18px; font-weight: 700; }
+    .btn-logout { background: transparent; color: #f87171; border: 1px solid #f87171; padding: 6px 14px; font-size: 13px; font-weight: 700; border-radius: 6px; cursor: pointer; }
+    .btn-logout:hover { background: #f87171; color: white; }
+
+    .container { max-width: 900px; margin: 0 auto; padding: 24px 20px; }
+
+    .card { background: var(--card); border: 1px solid var(--borde); border-radius: 12px; padding: 20px; margin-bottom: 20px; }
+    .card h3 { font-size: 16px; font-weight: 700; margin-bottom: 16px; }
+
+    .credenciales-box {
+      background: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 10px;
+      padding: 16px; margin-bottom: 20px; font-size: 14px; line-height: 1.8;
+    }
+    .credenciales-box strong { font-family: monospace; font-size: 15px; }
+
+    .solicitud { border: 1px solid var(--borde); border-radius: 10px; padding: 16px; margin-bottom: 12px; }
+    .solicitud-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; flex-wrap: wrap; }
+    .solicitud-empresa { font-size: 16px; font-weight: 700; }
+    .solicitud-datos { font-size: 13px; color: var(--muted); margin-top: 6px; line-height: 1.6; }
+    .badge { font-size: 11px; font-weight: 700; padding: 3px 10px; border-radius: 20px; text-transform: uppercase; }
+    .badge-pendiente { background: #fef9c3; color: #854d0e; }
+    .badge-aprobada  { background: #d1fae5; color: #065f46; }
+    .badge-rechazada { background: #fee2e2; color: #991b1b; }
+
+    .btn { padding: 8px 16px; font-size: 13px; font-weight: 700; border: none; border-radius: 8px; cursor: pointer; margin-top: 12px; margin-right: 8px; }
+    .btn-verde { background: var(--verde); color: white; }
+    .btn-rojo  { background: transparent; color: var(--rojo); border: 1px solid var(--rojo); }
+    .btn-verde:hover, .btn-rojo:hover { opacity: 0.85; }
+
+    .vacío { color: var(--muted); font-size: 14px; padding: 8px 0; }
+  </style>
+</head>
+<body>
+
+<div id="modal-overlay" class="hidden" onclick="if(event.target===this)cerrarModal()">
+  <div class="modal-box">
+    <h3 id="modal-titulo"></h3>
+    <p id="modal-msg"></p>
+    <div class="modal-btns">
+      <button class="btn-modal-cancel" onclick="cerrarModal()">Cancelar</button>
+      <button class="btn-modal-ok" id="modal-ok">Confirmar</button>
+    </div>
+  </div>
+</div>
+
+<div id="screen-login">
+  <div class="login-card">
+    <h2>🔑 Superadmin</h2>
+    <p>Panel de aprobación de altas de empresas</p>
+    <div class="login-field">
+      <label>Usuario</label>
+      <input id="login-usuario" type="text" autocomplete="username" placeholder="Usuario" onkeydown="if(event.key==='Enter') doLogin()">
+    </div>
+    <div class="login-field">
+      <label>Contraseña</label>
+      <input id="login-clave" type="password" autocomplete="current-password" placeholder="Contraseña" onkeydown="if(event.key==='Enter') doLogin()">
+    </div>
+    <button class="btn-login" id="btn-login" onclick="doLogin()">Ingresar</button>
+    <div class="login-error" id="login-error"></div>
+  </div>
+</div>
+
+<div id="screen-panel">
+  <header>
+    <h1>🔑 Superadmin — Solicitudes de alta</h1>
+    <button class="btn-logout" onclick="doLogout()">Cerrar sesión</button>
+  </header>
+
+  <div class="container">
+    <div id="credenciales-generadas"></div>
+
+    <div class="card">
+      <h3>Solicitudes</h3>
+      <div id="lista-solicitudes"><div class="vacío">Cargando...</div></div>
+    </div>
+  </div>
+</div>
+
+<script>
+  let superadminToken = sessionStorage.getItem('superadminToken') || '';
+  let _modalCb = null;
+
+  function confirmar(titulo, msg, onSi) {
+    document.getElementById('modal-titulo').textContent = titulo;
+    document.getElementById('modal-msg').textContent = msg;
+    _modalCb = onSi;
+    document.getElementById('modal-overlay').classList.remove('hidden');
+  }
+  function cerrarModal() {
+    document.getElementById('modal-overlay').classList.add('hidden');
+    _modalCb = null;
+  }
+  document.getElementById('modal-ok').addEventListener('click', () => {
+    const cb = _modalCb;
+    cerrarModal();
+    if (cb) cb();
+  });
+
+  async function superadminFetch(url, opts = {}) {
+    const res = await fetch(url, {
+      headers: { 'Content-Type': 'application/json', 'x-superadmin-token': superadminToken },
+      ...opts,
+    });
+    if (res.status === 401) {
+      sessionStorage.removeItem('superadminToken');
+      superadminToken = '';
+      document.getElementById('screen-panel').style.display = 'none';
+      document.getElementById('screen-login').style.display = 'flex';
+      document.getElementById('login-error').textContent = 'Tu sesión expiró. Iniciá sesión nuevamente.';
+      return null;
+    }
+    return res;
+  }
+
+  async function doLogin() {
+    const usuario = document.getElementById('login-usuario').value.trim();
+    const clave   = document.getElementById('login-clave').value;
+    const btn = document.getElementById('btn-login');
+    const errEl = document.getElementById('login-error');
+    if (!usuario || !clave) { errEl.textContent = 'Completá usuario y contraseña'; return; }
+    btn.disabled = true; btn.textContent = 'Ingresando...';
+    errEl.textContent = '';
+    try {
+      const res = await fetch('/api/superadmin/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ usuario, clave }),
+      });
+      const data = await res.json();
+      if (!res.ok) { errEl.textContent = data.error || 'Error al ingresar'; return; }
+      superadminToken = data.token;
+      sessionStorage.setItem('superadminToken', superadminToken);
+      mostrarPanel();
+    } finally {
+      btn.disabled = false; btn.textContent = 'Ingresar';
+    }
+  }
+
+  async function doLogout() {
+    await superadminFetch('/api/superadmin/logout', { method: 'POST' }).catch(() => {});
+    sessionStorage.removeItem('superadminToken');
+    superadminToken = '';
+    document.getElementById('screen-panel').style.display = 'none';
+    document.getElementById('screen-login').style.display = 'flex';
+    document.getElementById('login-clave').value = '';
+  }
+
+  function mostrarPanel() {
+    document.getElementById('screen-login').style.display = 'none';
+    document.getElementById('screen-panel').style.display = 'block';
+    cargarSolicitudes();
+  }
+
+  (async () => {
+    if (!superadminToken) return;
+    const res = await superadminFetch('/api/superadmin/solicitudes');
+    if (res?.ok) mostrarPanel();
+  })();
+
+  const BADGE_LABEL = { pendiente: 'Pendiente', aprobada: 'Aprobada', rechazada: 'Rechazada' };
+
+  async function cargarSolicitudes() {
+    const res = await superadminFetch('/api/superadmin/solicitudes');
+    if (!res) return;
+    const solicitudes = await res.json();
+    renderizar(solicitudes);
+  }
+
+  function renderizar(solicitudes) {
+    const lista = document.getElementById('lista-solicitudes');
+    if (!solicitudes.length) {
+      lista.innerHTML = '<div class="vacío">No hay solicitudes todavía.</div>';
+      return;
+    }
+    lista.innerHTML = '';
+    solicitudes.forEach(s => {
+      const div = document.createElement('div');
+      div.className = 'solicitud';
+      div.innerHTML = `
+        <div class="solicitud-top">
+          <div>
+            <div class="solicitud-empresa">${esc(s.nombre_empresa)}</div>
+            <div class="solicitud-datos">
+              RUC empresa: ${esc(s.ruc_empresa)} · RUC/cédula dueño: ${esc(s.ruc_cedula_dueno)}<br>
+              Contacto: ${esc(s.contacto_nombre)} ${s.contacto_email ? '· ' + esc(s.contacto_email) : ''} ${s.contacto_telefono ? '· ' + esc(s.contacto_telefono) : ''}<br>
+              Recibida: ${new Date(s.creado_en).toLocaleString('es-EC')}
+            </div>
+          </div>
+          <span class="badge badge-${s.estado}">${BADGE_LABEL[s.estado] || s.estado}</span>
+        </div>
+        ${s.estado === 'pendiente' ? `
+          <button class="btn btn-verde" onclick="aprobar(${s.id})">Aprobar</button>
+          <button class="btn btn-rojo" onclick="rechazar(${s.id})">Rechazar</button>
+        ` : ''}
+      `;
+      lista.appendChild(div);
+    });
+  }
+
+  async function aprobar(id) {
+    const res = await superadminFetch(`/api/superadmin/solicitudes/${id}/aprobar`, { method: 'POST' });
+    if (!res) return;
+    const data = await res.json();
+    if (!res.ok) { alertaError(data.error || 'Error al aprobar'); return; }
+
+    document.getElementById('credenciales-generadas').innerHTML = `
+      <div class="credenciales-box">
+        ✅ Empresa creada (slug <strong>${esc(data.slug)}</strong>). Enviale a mano estas credenciales de acceso a <code>/admin.html</code>:<br>
+        Usuario: <strong>${esc(data.usuario)}</strong><br>
+        Contraseña: <strong>${esc(data.clave)}</strong>
+      </div>`;
+    await cargarSolicitudes();
+  }
+
+  function rechazar(id) {
+    confirmar('Rechazar solicitud', '¿Rechazar esta solicitud de alta?', async () => {
+      const res = await superadminFetch(`/api/superadmin/solicitudes/${id}/rechazar`, { method: 'POST' });
+      if (!res) return;
+      await cargarSolicitudes();
+    });
+  }
+
+  function alertaError(msg) {
+    document.getElementById('credenciales-generadas').innerHTML =
+      `<div class="credenciales-box" style="background:#fee2e2;border-color:#fecaca">⚠️ ${esc(msg)}</div>`;
+  }
+
+  function esc(str) {
+    return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+</script>
+</body>
+</html>

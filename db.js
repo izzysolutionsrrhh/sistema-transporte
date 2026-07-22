@@ -1,4 +1,6 @@
 const { Pool } = require('pg');
+const crypto = require('crypto');
+const { hashClave } = require('./auth');
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
@@ -14,6 +16,27 @@ const ESPERA_SEG = parseInt(process.env.ESPERA_SEG || '180', 10);
 
 function fechaHoy() {
   return new Date().toLocaleDateString('en-CA', { timeZone: TZ });
+}
+
+function slugify(texto) {
+  return texto
+    .normalize('NFD').replace(new RegExp('[\\u0300-\\u036f]', 'g'), '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '') || 'empresa';
+}
+
+// Genera un identificador (slug de empresa o usuario admin) unico probando
+// sufijos -2, -3... hasta encontrar uno libre. `existe(candidato)` debe
+// devolver true si ese candidato ya esta usado.
+async function generarIdentificadorUnico(base, existe) {
+  let candidato = base;
+  let n = 2;
+  while (await existe(candidato)) {
+    candidato = `${base}-${n}`;
+    n++;
+  }
+  return candidato;
 }
 
 async function sesionHoy(recorrido_id) {
@@ -183,6 +206,22 @@ async function initDB() {
     ALTER TABLE reportes ALTER COLUMN empresa_id SET NOT NULL;
     ALTER TABLE reportes DROP CONSTRAINT IF EXISTS reportes_pkey;
     ALTER TABLE reportes ADD CONSTRAINT reportes_pkey PRIMARY KEY (empresa_id, fecha);
+
+    -- Alta de empresas nuevas: piden acceso desde una pagina publica, se
+    -- verifican a mano (identidad + deposito) y recien ahi se crea la
+    -- empresa real y su primer usuario admin.
+    CREATE TABLE IF NOT EXISTS solicitudes_alta (
+      id                SERIAL PRIMARY KEY,
+      nombre_empresa    TEXT NOT NULL,
+      ruc_empresa       TEXT NOT NULL,
+      ruc_cedula_dueno  TEXT NOT NULL,
+      contacto_nombre   TEXT NOT NULL,
+      contacto_email    TEXT,
+      contacto_telefono TEXT,
+      estado            TEXT NOT NULL DEFAULT 'pendiente',
+      empresa_id        INTEGER REFERENCES empresas(id),
+      creado_en         TIMESTAMPTZ DEFAULT now()
+    );
   `);
   console.log('  Base de datos inicializada correctamente');
 }
@@ -786,5 +825,73 @@ module.exports = {
     }
 
     return { recorridosCreados, pasajerosCreados, errores };
+  },
+
+  // ─── Solicitudes de alta (self-serve con verificacion manual) ────────────
+
+  async crearSolicitudAlta({ nombre_empresa, ruc_empresa, ruc_cedula_dueno, contacto_nombre, contacto_email, contacto_telefono }) {
+    const { rows } = await pool.query(
+      `INSERT INTO solicitudes_alta
+         (nombre_empresa, ruc_empresa, ruc_cedula_dueno, contacto_nombre, contacto_email, contacto_telefono)
+       VALUES ($1, $2, $3, $4, $5, $6) RETURNING id`,
+      [nombre_empresa, ruc_empresa, ruc_cedula_dueno, contacto_nombre, contacto_email || null, contacto_telefono || null]
+    );
+    return rows[0].id;
+  },
+
+  async listarSolicitudes() {
+    const { rows } = await pool.query(
+      `SELECT * FROM solicitudes_alta ORDER BY (estado = 'pendiente') DESC, creado_en DESC`
+    );
+    return rows;
+  },
+
+  // Crea la empresa real + su primer usuario admin a partir de una solicitud
+  // pendiente. Devuelve las credenciales en texto plano UNA sola vez (nunca
+  // se guardan asi, solo el hash) para que se le reenvien a mano al cliente.
+  async aprobarSolicitud(id) {
+    const { rows: sol } = await pool.query(
+      "SELECT * FROM solicitudes_alta WHERE id = $1 AND estado = 'pendiente'", [id]
+    );
+    const solicitud = sol[0];
+    if (!solicitud) return null;
+
+    const slugBase = slugify(solicitud.nombre_empresa);
+    const slug = await generarIdentificadorUnico(slugBase, async candidato => {
+      const { rows } = await pool.query('SELECT 1 FROM empresas WHERE slug = $1', [candidato]);
+      return rows.length > 0;
+    });
+
+    const usuario = await generarIdentificadorUnico(slugBase, async candidato => {
+      const { rows } = await pool.query('SELECT 1 FROM usuarios_admin WHERE usuario = $1', [candidato]);
+      return rows.length > 0;
+    });
+
+    const { rows: emp } = await pool.query(
+      'INSERT INTO empresas (nombre, slug) VALUES ($1, $2) RETURNING id',
+      [solicitud.nombre_empresa, slug]
+    );
+    const empresa_id = emp[0].id;
+
+    const clave = crypto.randomBytes(6).toString('hex');
+    await pool.query(
+      'INSERT INTO usuarios_admin (empresa_id, usuario, clave_hash) VALUES ($1, $2, $3)',
+      [empresa_id, usuario, hashClave(clave)]
+    );
+
+    await pool.query(
+      "UPDATE solicitudes_alta SET estado = 'aprobada', empresa_id = $1 WHERE id = $2",
+      [empresa_id, id]
+    );
+
+    return { empresa_id, slug, usuario, clave };
+  },
+
+  async rechazarSolicitud(id) {
+    const { rows } = await pool.query(
+      "UPDATE solicitudes_alta SET estado = 'rechazada' WHERE id = $1 AND estado = 'pendiente' RETURNING id",
+      [id]
+    );
+    return rows.length > 0;
   },
 };

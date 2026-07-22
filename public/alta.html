@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Solicitar acceso - Sistema de Recorridos</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --azul: #1d4ed8;
+      --verde: #15803d;
+      --rojo: #dc2626;
+      --gris: #6b7280;
+      --bg: #f1f5f9;
+      --card: #ffffff;
+      --borde: #e2e8f0;
+      --texto: #1e293b;
+      --muted: #64748b;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: var(--bg);
+      color: var(--texto);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px 16px;
+    }
+
+    .hidden { display: none !important; }
+
+    .card {
+      background: var(--card); border: 1px solid var(--borde); border-radius: 14px;
+      padding: 32px; width: 100%; max-width: 480px;
+    }
+    .card h1 { font-size: 20px; font-weight: 700; margin-bottom: 4px; }
+    .card > p.subt { color: var(--muted); font-size: 14px; margin-bottom: 24px; }
+
+    .form-group { display: flex; flex-direction: column; gap: 6px; margin-bottom: 16px; }
+    .form-group label { font-size: 13px; font-weight: 600; color: var(--muted); }
+    .form-group input {
+      padding: 11px 12px; border: 1px solid var(--borde); border-radius: 8px;
+      font-size: 15px; outline: none; width: 100%;
+    }
+    .form-group input:focus { border-color: var(--azul); }
+
+    .btn {
+      width: 100%; padding: 13px; font-size: 15px; font-weight: 700; border: none;
+      border-radius: 8px; cursor: pointer; background: var(--azul); color: white;
+      margin-top: 8px;
+    }
+    .btn:hover { opacity: 0.9; }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .error-msg { color: var(--rojo); font-size: 13px; margin-top: 10px; min-height: 18px; text-align: center; }
+
+    /* ── Pantalla de confirmación / pago ─────────────── */
+    .ok-icono { font-size: 40px; text-align: center; margin-bottom: 12px; }
+    .cuenta-box {
+      background: #f8fafc; border: 1px solid var(--borde); border-radius: 10px;
+      padding: 18px; margin: 20px 0; font-size: 14px; line-height: 1.9;
+    }
+    .cuenta-box strong { color: var(--texto); }
+    .cuenta-box .fila { display: flex; justify-content: space-between; gap: 12px; }
+    .cuenta-box .fila span:first-child { color: var(--muted); }
+    .nota-final { font-size: 13px; color: var(--muted); line-height: 1.6; text-align: center; }
+  </style>
+</head>
+<body>
+
+<!-- ── FORMULARIO ─────────────────────────────────────── -->
+<div class="card" id="screen-form">
+  <h1>🚐 Solicitar acceso al sistema</h1>
+  <p class="subt">Completá los datos de tu empresa. Nos contactamos para verificar y activar tu cuenta.</p>
+
+  <div class="form-group">
+    <label>Nombre de la empresa</label>
+    <input id="f-nombre-empresa" type="text" placeholder="Ej: Transportes Andina">
+  </div>
+  <div class="form-group">
+    <label>RUC de la empresa</label>
+    <input id="f-ruc-empresa" type="text" placeholder="1793209215001">
+  </div>
+  <div class="form-group">
+    <label>RUC o cédula del dueño</label>
+    <input id="f-ruc-cedula-dueno" type="text" placeholder="0987654321">
+  </div>
+  <div class="form-group">
+    <label>Nombre de contacto</label>
+    <input id="f-contacto-nombre" type="text" placeholder="Tu nombre">
+  </div>
+  <div class="form-group">
+    <label>Email de contacto</label>
+    <input id="f-contacto-email" type="email" placeholder="correo@empresa.com">
+  </div>
+  <div class="form-group">
+    <label>Teléfono / WhatsApp</label>
+    <input id="f-contacto-telefono" type="text" placeholder="09XXXXXXXX">
+  </div>
+
+  <button class="btn" id="btn-enviar" onclick="enviarSolicitud()">Enviar solicitud</button>
+  <div class="error-msg" id="form-error"></div>
+</div>
+
+<!-- ── CONFIRMACIÓN + DATOS DE PAGO ────────────────────── -->
+<div class="card hidden" id="screen-gracias">
+  <div class="ok-icono">✅</div>
+  <h1 style="text-align:center">Solicitud recibida</h1>
+  <p class="subt" style="text-align:center">
+    Para activar tu cuenta, hacé el depósito a la siguiente cuenta. En cuanto lo verifiquemos,
+    te contactamos con tu usuario y contraseña de acceso.
+  </p>
+
+  <div class="cuenta-box">
+    <div class="fila"><span>Banco</span><strong>Banco Pichincha</strong></div>
+    <div class="fila"><span>Tipo de cuenta</span><strong>Cuenta Corriente</strong></div>
+    <div class="fila"><span>N° de cuenta</span><strong>2100300476</strong></div>
+    <div class="fila"><span>Titular</span><strong>Izzy Solutions S.A.S.</strong></div>
+    <div class="fila"><span>RUC</span><strong>1793209215001</strong></div>
+  </div>
+
+  <p class="nota-final">
+    Guardá el comprobante del depósito — te lo vamos a pedir al contactarte para confirmar la activación.
+  </p>
+</div>
+
+<script>
+  async function enviarSolicitud() {
+    const nombre_empresa    = document.getElementById('f-nombre-empresa').value.trim();
+    const ruc_empresa       = document.getElementById('f-ruc-empresa').value.trim();
+    const ruc_cedula_dueno  = document.getElementById('f-ruc-cedula-dueno').value.trim();
+    const contacto_nombre   = document.getElementById('f-contacto-nombre').value.trim();
+    const contacto_email    = document.getElementById('f-contacto-email').value.trim();
+    const contacto_telefono = document.getElementById('f-contacto-telefono').value.trim();
+    const btn = document.getElementById('btn-enviar');
+    const err = document.getElementById('form-error');
+
+    if (!nombre_empresa || !ruc_empresa || !ruc_cedula_dueno || !contacto_nombre) {
+      err.textContent = 'Completá al menos empresa, RUC, cédula/RUC del dueño y tu nombre de contacto';
+      return;
+    }
+
+    btn.disabled = true; btn.textContent = 'Enviando...';
+    err.textContent = '';
+
+    try {
+      const res = await fetch('/api/solicitudes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          nombre_empresa, ruc_empresa, ruc_cedula_dueno,
+          contacto_nombre, contacto_email, contacto_telefono,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) { err.textContent = data.error || 'Error al enviar la solicitud'; return; }
+
+      document.getElementById('screen-form').classList.add('hidden');
+      document.getElementById('screen-gracias').classList.remove('hidden');
+    } catch {
+      err.textContent = 'No se pudo conectar. Intentá de nuevo.';
+    } finally {
+      btn.disabled = false; btn.textContent = 'Enviar solicitud';
+    }
+  }
+</script>
+</body>
+</html>
