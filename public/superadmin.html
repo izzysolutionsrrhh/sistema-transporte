@@ -249,6 +249,7 @@
             <div class="solicitud-empresa">${esc(s.nombre_empresa)}</div>
             <div class="solicitud-datos">
               RUC/cédula: ${esc(s.ruc_o_cedula)}<br>
+              Dirección: ${esc(s.direccion)}<br>
               Contacto: ${esc(s.contacto_nombre)} ${s.contacto_email ? '· ' + esc(s.contacto_email) : ''} ${s.contacto_telefono ? '· ' + esc(s.contacto_telefono) : ''}<br>
               Recibida: ${new Date(s.creado_en).toLocaleString('es-EC')}
             </div>

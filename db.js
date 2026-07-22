@@ -214,6 +214,7 @@ async function initDB() {
       id                SERIAL PRIMARY KEY,
       nombre_empresa    TEXT NOT NULL,
       ruc_o_cedula      TEXT NOT NULL,
+      direccion         TEXT NOT NULL,
       contacto_nombre   TEXT NOT NULL,
       contacto_email    TEXT,
       contacto_telefono TEXT,
@@ -221,6 +222,11 @@ async function initDB() {
       empresa_id        INTEGER REFERENCES empresas(id),
       creado_en         TIMESTAMPTZ DEFAULT now()
     );
+
+    -- Direccion para facturacion (se agrego despues de crear la tabla).
+    ALTER TABLE solicitudes_alta ADD COLUMN IF NOT EXISTS direccion TEXT;
+    UPDATE solicitudes_alta SET direccion = '' WHERE direccion IS NULL;
+    ALTER TABLE solicitudes_alta ALTER COLUMN direccion SET NOT NULL;
 
     -- Migracion: ruc_empresa y ruc_cedula_dueno se unificaron en un solo
     -- campo. No siempre hay dos identificadores: si la empresa no tiene RUC
@@ -845,12 +851,12 @@ module.exports = {
 
   // ─── Solicitudes de alta (self-serve con verificacion manual) ────────────
 
-  async crearSolicitudAlta({ nombre_empresa, ruc_o_cedula, contacto_nombre, contacto_email, contacto_telefono }) {
+  async crearSolicitudAlta({ nombre_empresa, ruc_o_cedula, direccion, contacto_nombre, contacto_email, contacto_telefono }) {
     const { rows } = await pool.query(
       `INSERT INTO solicitudes_alta
-         (nombre_empresa, ruc_o_cedula, contacto_nombre, contacto_email, contacto_telefono)
-       VALUES ($1, $2, $3, $4, $5) RETURNING id`,
-      [nombre_empresa, ruc_o_cedula, contacto_nombre, contacto_email || null, contacto_telefono || null]
+         (nombre_empresa, ruc_o_cedula, direccion, contacto_nombre, contacto_email, contacto_telefono)
+       VALUES ($1, $2, $3, $4, $5, $6) RETURNING id`,
+      [nombre_empresa, ruc_o_cedula, direccion, contacto_nombre, contacto_email || null, contacto_telefono || null]
     );
     return rows[0].id;
   },

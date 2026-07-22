@@ -85,6 +85,10 @@
     <input id="f-ruc-o-cedula" type="text" placeholder="1793209215001">
   </div>
   <div class="form-group">
+    <label>Dirección (para facturación)</label>
+    <input id="f-direccion" type="text" placeholder="Av. Ejemplo 123 y Calle Secundaria, Ciudad">
+  </div>
+  <div class="form-group">
     <label>Nombre de contacto</label>
     <input id="f-contacto-nombre" type="text" placeholder="Tu nombre">
   </div>
@@ -127,14 +131,15 @@
   async function enviarSolicitud() {
     const nombre_empresa    = document.getElementById('f-nombre-empresa').value.trim();
     const ruc_o_cedula      = document.getElementById('f-ruc-o-cedula').value.trim();
+    const direccion         = document.getElementById('f-direccion').value.trim();
     const contacto_nombre   = document.getElementById('f-contacto-nombre').value.trim();
     const contacto_email    = document.getElementById('f-contacto-email').value.trim();
     const contacto_telefono = document.getElementById('f-contacto-telefono').value.trim();
     const btn = document.getElementById('btn-enviar');
     const err = document.getElementById('form-error');
 
-    if (!nombre_empresa || !ruc_o_cedula || !contacto_nombre) {
-      err.textContent = 'Completá al menos empresa, RUC/cédula y tu nombre de contacto';
+    if (!nombre_empresa || !ruc_o_cedula || !direccion || !contacto_nombre) {
+      err.textContent = 'Completá al menos empresa, RUC/cédula, dirección y tu nombre de contacto';
       return;
     }
 
@@ -146,7 +151,7 @@
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          nombre_empresa, ruc_o_cedula,
+          nombre_empresa, ruc_o_cedula, direccion,
           contacto_nombre, contacto_email, contacto_telefono,
         }),
       });
