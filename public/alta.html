@@ -81,12 +81,8 @@
     <input id="f-nombre-empresa" type="text" placeholder="Ej: Transportes Andina">
   </div>
   <div class="form-group">
-    <label>RUC de la empresa</label>
-    <input id="f-ruc-empresa" type="text" placeholder="1793209215001">
-  </div>
-  <div class="form-group">
-    <label>RUC o cédula del dueño</label>
-    <input id="f-ruc-cedula-dueno" type="text" placeholder="0987654321">
+    <label>RUC de la empresa (o cédula/RUC del dueño si no tiene RUC propio)</label>
+    <input id="f-ruc-o-cedula" type="text" placeholder="1793209215001">
   </div>
   <div class="form-group">
     <label>Nombre de contacto</label>
@@ -130,16 +126,15 @@
 <script>
   async function enviarSolicitud() {
     const nombre_empresa    = document.getElementById('f-nombre-empresa').value.trim();
-    const ruc_empresa       = document.getElementById('f-ruc-empresa').value.trim();
-    const ruc_cedula_dueno  = document.getElementById('f-ruc-cedula-dueno').value.trim();
+    const ruc_o_cedula      = document.getElementById('f-ruc-o-cedula').value.trim();
     const contacto_nombre   = document.getElementById('f-contacto-nombre').value.trim();
     const contacto_email    = document.getElementById('f-contacto-email').value.trim();
     const contacto_telefono = document.getElementById('f-contacto-telefono').value.trim();
     const btn = document.getElementById('btn-enviar');
     const err = document.getElementById('form-error');
 
-    if (!nombre_empresa || !ruc_empresa || !ruc_cedula_dueno || !contacto_nombre) {
-      err.textContent = 'Completá al menos empresa, RUC, cédula/RUC del dueño y tu nombre de contacto';
+    if (!nombre_empresa || !ruc_o_cedula || !contacto_nombre) {
+      err.textContent = 'Completá al menos empresa, RUC/cédula y tu nombre de contacto';
       return;
     }
 
@@ -151,7 +146,7 @@
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          nombre_empresa, ruc_empresa, ruc_cedula_dueno,
+          nombre_empresa, ruc_o_cedula,
           contacto_nombre, contacto_email, contacto_telefono,
         }),
       });

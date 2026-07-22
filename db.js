@@ -213,8 +213,7 @@ async function initDB() {
     CREATE TABLE IF NOT EXISTS solicitudes_alta (
       id                SERIAL PRIMARY KEY,
       nombre_empresa    TEXT NOT NULL,
-      ruc_empresa       TEXT NOT NULL,
-      ruc_cedula_dueno  TEXT NOT NULL,
+      ruc_o_cedula      TEXT NOT NULL,
       contacto_nombre   TEXT NOT NULL,
       contacto_email    TEXT,
       contacto_telefono TEXT,
@@ -222,6 +221,17 @@ async function initDB() {
       empresa_id        INTEGER REFERENCES empresas(id),
       creado_en         TIMESTAMPTZ DEFAULT now()
     );
+
+    -- Migracion: ruc_empresa y ruc_cedula_dueno se unificaron en un solo
+    -- campo. No siempre hay dos identificadores: si la empresa no tiene RUC
+    -- propio (dueño persona natural, negocio chico), se usa el RUC/cedula
+    -- del representante legal en su lugar - es un solo dato, no dos.
+    ALTER TABLE solicitudes_alta ADD COLUMN IF NOT EXISTS ruc_o_cedula TEXT;
+    UPDATE solicitudes_alta SET ruc_o_cedula = COALESCE(ruc_o_cedula, ruc_empresa, ruc_cedula_dueno)
+      WHERE ruc_o_cedula IS NULL;
+    ALTER TABLE solicitudes_alta ALTER COLUMN ruc_o_cedula SET NOT NULL;
+    ALTER TABLE solicitudes_alta DROP COLUMN IF EXISTS ruc_empresa;
+    ALTER TABLE solicitudes_alta DROP COLUMN IF EXISTS ruc_cedula_dueno;
   `);
   console.log('  Base de datos inicializada correctamente');
 }
@@ -829,12 +839,12 @@ module.exports = {
 
   // ─── Solicitudes de alta (self-serve con verificacion manual) ────────────
 
-  async crearSolicitudAlta({ nombre_empresa, ruc_empresa, ruc_cedula_dueno, contacto_nombre, contacto_email, contacto_telefono }) {
+  async crearSolicitudAlta({ nombre_empresa, ruc_o_cedula, contacto_nombre, contacto_email, contacto_telefono }) {
     const { rows } = await pool.query(
       `INSERT INTO solicitudes_alta
-         (nombre_empresa, ruc_empresa, ruc_cedula_dueno, contacto_nombre, contacto_email, contacto_telefono)
-       VALUES ($1, $2, $3, $4, $5, $6) RETURNING id`,
-      [nombre_empresa, ruc_empresa, ruc_cedula_dueno, contacto_nombre, contacto_email || null, contacto_telefono || null]
+         (nombre_empresa, ruc_o_cedula, contacto_nombre, contacto_email, contacto_telefono)
+       VALUES ($1, $2, $3, $4, $5) RETURNING id`,
+      [nombre_empresa, ruc_o_cedula, contacto_nombre, contacto_email || null, contacto_telefono || null]
     );
     return rows[0].id;
   },

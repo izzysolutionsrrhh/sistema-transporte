@@ -159,13 +159,12 @@ const solicitudLimiter = rateLimit({
 });
 
 app.post('/api/solicitudes', solicitudLimiter, async (req, res) => {
-  const { nombre_empresa, ruc_empresa, ruc_cedula_dueno, contacto_nombre, contacto_email, contacto_telefono } = req.body;
-  if (!nombre_empresa?.trim() || !ruc_empresa?.trim() || !ruc_cedula_dueno?.trim() || !contacto_nombre?.trim())
+  const { nombre_empresa, ruc_o_cedula, contacto_nombre, contacto_email, contacto_telefono } = req.body;
+  if (!nombre_empresa?.trim() || !ruc_o_cedula?.trim() || !contacto_nombre?.trim())
     return res.status(400).json({ error: 'Faltan datos requeridos' });
   const id = await db.crearSolicitudAlta({
     nombre_empresa: nombre_empresa.trim(),
-    ruc_empresa: ruc_empresa.trim(),
-    ruc_cedula_dueno: ruc_cedula_dueno.trim(),
+    ruc_o_cedula: ruc_o_cedula.trim(),
     contacto_nombre: contacto_nombre.trim(),
     contacto_email: contacto_email?.trim(),
     contacto_telefono: contacto_telefono?.trim(),
