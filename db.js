@@ -849,42 +849,54 @@ module.exports = {
   // Crea la empresa real + su primer usuario admin a partir de una solicitud
   // pendiente. Devuelve las credenciales en texto plano UNA sola vez (nunca
   // se guardan asi, solo el hash) para que se le reenvien a mano al cliente.
+  //
+  // El UPDATE de mas abajo con "WHERE estado = 'pendiente'" reclama la
+  // solicitud de forma atomica: si dos aprobaciones llegan a la vez (ej.
+  // doble click), Postgres serializa el UPDATE sobre la fila y solo una de
+  // las dos lo gana - la otra ve 0 filas afectadas y devuelve null, en vez
+  // de que ambas pasen un SELECT previo y terminen creando 2 empresas para
+  // la misma solicitud.
   async aprobarSolicitud(id) {
-    const { rows: sol } = await pool.query(
-      "SELECT * FROM solicitudes_alta WHERE id = $1 AND estado = 'pendiente'", [id]
+    const { rows: claimed } = await pool.query(
+      "UPDATE solicitudes_alta SET estado = 'aprobada' WHERE id = $1 AND estado = 'pendiente' RETURNING *",
+      [id]
     );
-    const solicitud = sol[0];
+    const solicitud = claimed[0];
     if (!solicitud) return null;
 
-    const slugBase = slugify(solicitud.nombre_empresa);
-    const slug = await generarIdentificadorUnico(slugBase, async candidato => {
-      const { rows } = await pool.query('SELECT 1 FROM empresas WHERE slug = $1', [candidato]);
-      return rows.length > 0;
-    });
+    try {
+      const slugBase = slugify(solicitud.nombre_empresa);
+      const slug = await generarIdentificadorUnico(slugBase, async candidato => {
+        const { rows } = await pool.query('SELECT 1 FROM empresas WHERE slug = $1', [candidato]);
+        return rows.length > 0;
+      });
 
-    const usuario = await generarIdentificadorUnico(slugBase, async candidato => {
-      const { rows } = await pool.query('SELECT 1 FROM usuarios_admin WHERE usuario = $1', [candidato]);
-      return rows.length > 0;
-    });
+      const usuario = await generarIdentificadorUnico(slugBase, async candidato => {
+        const { rows } = await pool.query('SELECT 1 FROM usuarios_admin WHERE usuario = $1', [candidato]);
+        return rows.length > 0;
+      });
 
-    const { rows: emp } = await pool.query(
-      'INSERT INTO empresas (nombre, slug) VALUES ($1, $2) RETURNING id',
-      [solicitud.nombre_empresa, slug]
-    );
-    const empresa_id = emp[0].id;
+      const { rows: emp } = await pool.query(
+        'INSERT INTO empresas (nombre, slug) VALUES ($1, $2) RETURNING id',
+        [solicitud.nombre_empresa, slug]
+      );
+      const empresa_id = emp[0].id;
 
-    const clave = crypto.randomBytes(6).toString('hex');
-    await pool.query(
-      'INSERT INTO usuarios_admin (empresa_id, usuario, clave_hash) VALUES ($1, $2, $3)',
-      [empresa_id, usuario, hashClave(clave)]
-    );
+      const clave = crypto.randomBytes(6).toString('hex');
+      await pool.query(
+        'INSERT INTO usuarios_admin (empresa_id, usuario, clave_hash) VALUES ($1, $2, $3)',
+        [empresa_id, usuario, hashClave(clave)]
+      );
 
-    await pool.query(
-      "UPDATE solicitudes_alta SET estado = 'aprobada', empresa_id = $1 WHERE id = $2",
-      [empresa_id, id]
-    );
+      await pool.query('UPDATE solicitudes_alta SET empresa_id = $1 WHERE id = $2', [empresa_id, id]);
 
-    return { empresa_id, slug, usuario, clave };
+      return { empresa_id, slug, usuario, clave };
+    } catch (err) {
+      // Si algo fallo despues de reclamar la solicitud, la devolvemos a
+      // "pendiente" para que se pueda reintentar en vez de quedar trabada.
+      await pool.query("UPDATE solicitudes_alta SET estado = 'pendiente' WHERE id = $1", [id]);
+      throw err;
+    }
   },
 
   async rechazarSolicitud(id) {
